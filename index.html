@@ -13,20 +13,12 @@ body {
   color: #e6e6e6;
   font-family: Arial, sans-serif;
 }
-
 .wrapper {
   max-width: 1100px;
   margin: 20px auto;
-  padding: 0 10px;
 }
-
-#priceChart {
-  height: 360px !important;
-}
-
-#volumeChart {
-  height: 180px !important;
-}
+#priceChart { height: 360px !important; }
+#volumeChart { height: 180px !important; }
 </style>
 </head>
 
@@ -41,7 +33,28 @@ const SYMBOL = 'BTCUSDT';
 const INTERVAL = '5m';
 const LIMIT = 120;
 
-let priceChart, volumeChart;
+let priceData = [];
+
+const wickPlugin = {
+  id: 'candlestickWicks',
+  afterDatasetsDraw(chart) {
+    const { ctx, scales: { x, y } } = chart;
+
+    ctx.save();
+    ctx.strokeStyle = '#999';
+    ctx.lineWidth = 1;
+
+    priceData.forEach((c, i) => {
+      const xPos = x.getPixelForValue(i);
+      ctx.beginPath();
+      ctx.moveTo(xPos, y.getPixelForValue(c.low));
+      ctx.lineTo(xPos, y.getPixelForValue(c.high));
+      ctx.stroke();
+    });
+
+    ctx.restore();
+  }
+};
 
 async function loadData() {
   const res = await fetch(
@@ -53,10 +66,10 @@ async function loadData() {
   const body = [];
   const base = [];
   const bodyColors = [];
-  const high = [];
-  const low = [];
   const netVolume = [];
   const volColors = [];
+
+  priceData = [];
 
   k.forEach(c => {
     labels.push('');
@@ -71,48 +84,29 @@ async function loadData() {
     base.push(Math.min(o, cl));
     bodyColors.push(up ? '#1fc77b' : '#e04b4b');
 
-    high.push(h);
-    low.push(l);
+    priceData.push({ high: h, low: l });
 
     const net = 2 * (+c[10]) - (+c[7]);
     netVolume.push(net);
     volColors.push(net >= 0 ? '#1fc77b' : '#e04b4b');
   });
 
-  drawPrice(labels, body, base, bodyColors, high, low);
+  drawPrice(labels, body, base, bodyColors);
   drawVolume(labels, netVolume, volColors);
 }
 
-function drawPrice(labels, body, base, colors, high, low) {
-  if (priceChart) priceChart.destroy();
-
-  priceChart = new Chart(document.getElementById('priceChart'), {
+function drawPrice(labels, body, base, colors) {
+  new Chart(document.getElementById('priceChart'), {
+    type: 'bar',
     data: {
       labels,
-      datasets: [
-        {
-          type: 'bar',
-          data: body,
-          base: base,
-          backgroundColor: colors,
-          barPercentage: 0.6,
-          categoryPercentage: 1
-        },
-        {
-          type: 'line',
-          data: high,
-          borderColor: '#999',
-          pointRadius: 0,
-          borderWidth: 1
-        },
-        {
-          type: 'line',
-          data: low,
-          borderColor: '#999',
-          pointRadius: 0,
-          borderWidth: 1
-        }
-      ]
+      datasets: [{
+        data: body,
+        base: base,
+        backgroundColor: colors,
+        barPercentage: 0.6,
+        categoryPercentage: 1
+      }]
     },
     options: {
       maintainAspectRatio: false,
@@ -126,14 +120,13 @@ function drawPrice(labels, body, base, colors, high, low) {
           grid: { color: '#222' }
         }
       }
-    }
+    },
+    plugins: [wickPlugin]
   });
 }
 
 function drawVolume(labels, data, colors) {
-  if (volumeChart) volumeChart.destroy();
-
-  volumeChart = new Chart(document.getElementById('volumeChart'), {
+  new Chart(document.getElementById('volumeChart'), {
     type: 'bar',
     data: {
       labels,
@@ -151,9 +144,7 @@ function drawVolume(labels, data, colors) {
       },
       scales: {
         x: { display: false },
-        y: {
-          grid: { color: '#222' }
-        }
+        y: { grid: { color: '#222' } }
       }
     }
   });
