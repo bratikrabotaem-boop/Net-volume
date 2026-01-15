@@ -2,7 +2,8 @@
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
-<title>BTC-USDT Net Volume</title>
+<title>BTCUSDT Price + Net Volume</title>
+
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
 <style>
@@ -15,29 +16,28 @@ body {
 
 .wrapper {
   max-width: 1100px;
-  margin: 30px auto;
+  margin: 25px auto;
   padding: 0 10px;
 }
 
 .title {
   text-align: center;
   font-size: 18px;
-  margin-bottom: 6px;
-  color: #cfcfcf;
+  margin-bottom: 4px;
 }
 
 .sub {
   text-align: center;
-  font-size: 13px;
+  font-size: 12px;
   color: #8a8a8a;
-  margin-bottom: 14px;
+  margin-bottom: 12px;
 }
 
 .tf-buttons {
   display: flex;
   justify-content: center;
   gap: 8px;
-  margin-bottom: 15px;
+  margin-bottom: 12px;
 }
 
 .tf-buttons button {
@@ -47,7 +47,6 @@ body {
   padding: 6px 12px;
   border-radius: 4px;
   cursor: pointer;
-  font-size: 13px;
 }
 
 .tf-buttons button.active {
@@ -55,9 +54,12 @@ body {
   color: #fff;
 }
 
-canvas {
-  width: 100% !important;
-  height: 420px !important;
+#priceChart {
+  height: 360px !important;
+}
+
+#volumeChart {
+  height: 180px !important;
 }
 </style>
 </head>
@@ -65,8 +67,8 @@ canvas {
 <body>
 <div class="wrapper">
 
-  <div class="title">BTC-USDT · NET VOLUME</div>
-  <div class="sub">BINANCE</div>
+  <div class="title">BTC / USDT</div>
+  <div class="sub">BINANCE · PRICE + NET VOLUME</div>
 
   <div class="tf-buttons">
     <button onclick="setTF('1d')">1D</button>
@@ -76,14 +78,18 @@ canvas {
     <button onclick="setTF('5m')" class="active">5M</button>
   </div>
 
-  <canvas id="chart"></canvas>
+  <canvas id="priceChart"></canvas>
+  <canvas id="volumeChart"></canvas>
+
 </div>
 
 <script>
-let chart;
-let INTERVAL = '5m';
 const SYMBOL = 'BTCUSDT';
 const LIMIT = 180;
+let INTERVAL = '5m';
+
+let priceChart;
+let volumeChart;
 
 async function loadData() {
   const url = `https://api.binance.com/api/v3/klines?symbol=${SYMBOL}&interval=${INTERVAL}&limit=${LIMIT}`;
@@ -91,68 +97,92 @@ async function loadData() {
   const data = await res.json();
 
   const labels = [];
-  const values = [];
+  const prices = [];
+  const netVolume = [];
   const colors = [];
 
-  let lastMonth = '';
-
   data.forEach(k => {
-    const d = new Date(k[0]);
-    const monthLabel = d.toLocaleDateString('en-US', {
-      month: 'short',
-      year: 'numeric'
+    const t = new Date(k[0]).toLocaleTimeString([], {
+      hour: '2-digit',
+      minute: '2-digit'
     });
 
-    const label = monthLabel !== lastMonth ? monthLabel : '';
-    lastMonth = monthLabel;
+    labels.push(t);
+    prices.push(+k[4]);
 
     const quote = +k[7];
     const buy = +k[10];
     const net = 2 * buy - quote;
 
-    labels.push(label);
-    values.push(net);
+    netVolume.push(net);
     colors.push(net >= 0 ? '#1fc77b' : '#e04b4b');
   });
 
-  draw(labels, values, colors);
+  drawPrice(labels, prices);
+  drawVolume(labels, netVolume, colors);
 }
 
-function draw(labels, data, colors) {
-  if (chart) chart.destroy();
+function drawPrice(labels, prices) {
+  if (priceChart) priceChart.destroy();
 
-  chart = new Chart(document.getElementById('chart'), {
+  priceChart = new Chart(priceChartCanvas(), {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [{
+        data: prices,
+        borderColor: '#e6e6e6',
+        borderWidth: 1.5,
+        pointRadius: 0,
+        tension: 0
+      }]
+    },
+    options: {
+      maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: {
+          grid: { display: false },
+          ticks: { display: false }
+        },
+        y: {
+          position: 'right',
+          grid: { color: '#1e1e1e' },
+          ticks: { color: '#9a9a9a' }
+        }
+      }
+    }
+  });
+}
+
+function drawVolume(labels, data, colors) {
+  if (volumeChart) volumeChart.destroy();
+
+  volumeChart = new Chart(volumeChartCanvas(), {
     type: 'bar',
     data: {
       labels,
       datasets: [{
         data,
         backgroundColor: colors,
-        borderWidth: 0
+        barPercentage: 1,
+        categoryPercentage: 1
       }]
     },
     options: {
       maintainAspectRatio: false,
-      plugins: {
-        legend: { display: false },
-        tooltip: {
-          callbacks: {
-            label: ctx => `Net: ${(ctx.raw / 1e6).toFixed(1)}M USDT`
-          }
-        }
-      },
+      plugins: { legend: { display: false } },
       scales: {
         x: {
           grid: { display: false },
           ticks: {
-            color: '#9a9a9a',
+            color: '#888',
             autoSkip: false,
-            maxRotation: 0,
-            font: { size: 12, weight: 'bold' }
+            maxRotation: 0
           }
         },
         y: {
-          grid: { color: '#222' },
+          grid: { color: '#1e1e1e' },
           ticks: {
             color: '#888',
             callback: v => (v / 1e6).toFixed(0) + 'M'
@@ -161,6 +191,14 @@ function draw(labels, data, colors) {
       }
     }
   });
+}
+
+function priceChartCanvas() {
+  return document.getElementById('priceChart');
+}
+
+function volumeChartCanvas() {
+  return document.getElementById('volumeChart');
 }
 
 function setTF(tf) {
