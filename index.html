@@ -110,10 +110,13 @@ const chart = LightweightCharts.createChart(
   }
 );
 
-// ===== PANE 1 — PRICE =====
+// 👉 создаём PANE
 const pricePane = chart.addPane({ height: 380 });
+const volumePane = chart.addPane({ height: 160 });
 
-const candleSeries = pricePane.addCandlestickSeries({
+// 👉 серии ПРАВИЛЬНО
+const candleSeries = chart.addCandlestickSeries({
+  pane: pricePane,
   upColor: '#1fc77b',
   downColor: '#e04b4b',
   borderUpColor: '#1fc77b',
@@ -122,10 +125,8 @@ const candleSeries = pricePane.addCandlestickSeries({
   wickDownColor: '#e04b4b'
 });
 
-// ===== PANE 2 — NET VOLUME =====
-const volumePane = chart.addPane({ height: 160 });
-
-const volumeSeries = volumePane.addHistogramSeries({
+const volumeSeries = chart.addHistogramSeries({
+  pane: volumePane,
   base: 0,
   priceFormat: { type: 'volume' }
 });
