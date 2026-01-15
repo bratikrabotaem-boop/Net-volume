@@ -2,152 +2,154 @@
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
-<title>BTCUSDT Candles + Net Volume</title>
+<title>BTCUSDT · Candles + Net Volume</title>
 
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1"></script>
+<!-- TradingView Lightweight Charts -->
+<script src="https://unpkg.com/lightweight-charts/dist/lightweight-charts.standalone.production.js"></script>
 
 <style>
 body {
   margin: 0;
-  background: #121417;
+  background: #0f1115;
   color: #e6e6e6;
   font-family: Arial, sans-serif;
 }
+
 .wrapper {
-  max-width: 1100px;
+  max-width: 1200px;
   margin: 20px auto;
 }
-#priceChart { height: 360px !important; }
-#volumeChart { height: 180px !important; }
+
+#price {
+  height: 380px;
+}
+
+#volume {
+  height: 180px;
+}
 </style>
 </head>
 
 <body>
 <div class="wrapper">
-  <canvas id="priceChart"></canvas>
-  <canvas id="volumeChart"></canvas>
+  <div id="price"></div>
+  <div id="volume"></div>
 </div>
 
 <script>
 const SYMBOL = 'BTCUSDT';
 const INTERVAL = '5m';
-const LIMIT = 120;
+const LIMIT = 300;
 
-let priceData = [];
+/* ---------- PRICE CHART ---------- */
 
-const wickPlugin = {
-  id: 'candlestickWicks',
-  afterDatasetsDraw(chart) {
-    const { ctx, scales: { x, y } } = chart;
-
-    ctx.save();
-    ctx.strokeStyle = '#999';
-    ctx.lineWidth = 1;
-
-    priceData.forEach((c, i) => {
-      const xPos = x.getPixelForValue(i);
-      ctx.beginPath();
-      ctx.moveTo(xPos, y.getPixelForValue(c.low));
-      ctx.lineTo(xPos, y.getPixelForValue(c.high));
-      ctx.stroke();
-    });
-
-    ctx.restore();
+const priceChart = LightweightCharts.createChart(
+  document.getElementById('price'),
+  {
+    layout: {
+      background: { color: '#0f1115' },
+      textColor: '#aaa'
+    },
+    grid: {
+      vertLines: { color: '#1c1f26' },
+      horzLines: { color: '#1c1f26' }
+    },
+    rightPriceScale: {
+      borderColor: '#333'
+    },
+    timeScale: {
+      borderColor: '#333',
+      timeVisible: true,
+      secondsVisible: false
+    }
   }
-};
+);
+
+const candleSeries = priceChart.addCandlestickSeries({
+  upColor: '#1fc77b',
+  downColor: '#e04b4b',
+  wickUpColor: '#1fc77b',
+  wickDownColor: '#e04b4b',
+  borderVisible: false
+});
+
+/* ---------- VOLUME CHART ---------- */
+
+const volumeChart = LightweightCharts.createChart(
+  document.getElementById('volume'),
+  {
+    layout: {
+      background: { color: '#0f1115' },
+      textColor: '#aaa'
+    },
+    grid: {
+      vertLines: { color: '#1c1f26' },
+      horzLines: { color: '#1c1f26' }
+    },
+    rightPriceScale: {
+      borderColor: '#333'
+    },
+    timeScale: {
+      visible: false
+    }
+  }
+);
+
+const volumeSeries = volumeChart.addHistogramSeries({
+  priceFormat: {
+    type: 'volume'
+  },
+  priceScaleId: ''
+});
+
+/* ---------- SYNC TIME SCALE ---------- */
+
+priceChart.timeScale().subscribeVisibleTimeRangeChange(range => {
+  volumeChart.timeScale().setVisibleRange(range);
+});
+
+/* ---------- LOAD BINANCE DATA ---------- */
 
 async function loadData() {
   const res = await fetch(
     `https://api.binance.com/api/v3/klines?symbol=${SYMBOL}&interval=${INTERVAL}&limit=${LIMIT}`
   );
-  const k = await res.json();
+  const data = await res.json();
 
-  const labels = [];
-  const body = [];
-  const base = [];
-  const bodyColors = [];
-  const netVolume = [];
-  const volColors = [];
+  const candles = [];
+  const volumes = [];
 
-  priceData = [];
+  data.forEach(k => {
+    const time = k[0] / 1000;
 
-  k.forEach(c => {
-    labels.push('');
+    const open = +k[1];
+    const high = +k[2];
+    const low  = +k[3];
+    const close= +k[4];
 
-    const o = +c[1];
-    const h = +c[2];
-    const l = +c[3];
-    const cl = +c[4];
-    const up = cl >= o;
+    candles.push({
+      time,
+      open,
+      high,
+      low,
+      close
+    });
 
-    body.push(Math.abs(cl - o));
-    base.push(Math.min(o, cl));
-    bodyColors.push(up ? '#1fc77b' : '#e04b4b');
+    const quote = +k[7];
+    const buy = +k[10];
+    const net = 2 * buy - quote;
 
-    priceData.push({ high: h, low: l });
-
-    const net = 2 * (+c[10]) - (+c[7]);
-    netVolume.push(net);
-    volColors.push(net >= 0 ? '#1fc77b' : '#e04b4b');
+    volumes.push({
+      time,
+      value: Math.abs(net),
+      color: net >= 0 ? '#1fc77b' : '#e04b4b'
+    });
   });
 
-  drawPrice(labels, body, base, bodyColors);
-  drawVolume(labels, netVolume, volColors);
-}
+  candleSeries.setData(candles);
+  volumeSeries.setData(volumes);
 
-function drawPrice(labels, body, base, colors) {
-  new Chart(document.getElementById('priceChart'), {
-    type: 'bar',
-    data: {
-      labels,
-      datasets: [{
-        data: body,
-        base: base,
-        backgroundColor: colors,
-        barPercentage: 0.6,
-        categoryPercentage: 1
-      }]
-    },
-    options: {
-      maintainAspectRatio: false,
-      plugins: {
-        legend: { display: false }
-      },
-      scales: {
-        x: { display: false },
-        y: {
-          position: 'right',
-          grid: { color: '#222' }
-        }
-      }
-    },
-    plugins: [wickPlugin]
-  });
-}
-
-function drawVolume(labels, data, colors) {
-  new Chart(document.getElementById('volumeChart'), {
-    type: 'bar',
-    data: {
-      labels,
-      datasets: [{
-        data,
-        backgroundColor: colors,
-        barPercentage: 1,
-        categoryPercentage: 1
-      }]
-    },
-    options: {
-      maintainAspectRatio: false,
-      plugins: {
-        legend: { display: false }
-      },
-      scales: {
-        x: { display: false },
-        y: { grid: { color: '#222' } }
-      }
-    }
-  });
+  priceChart.timeScale().fitContent();
 }
 
 loadData();
