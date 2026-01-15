@@ -1,30 +1,89 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-  <meta charset="UTF-8">
-  <title>BTC-USDT Net Volume</title>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <style>
-    body {
-      background: #0f1116;
-      color: #e0e0e0;
-      font-family: Arial, sans-serif;
-    }
-    canvas {
-      max-width: 1000px;
-      margin: 40px auto;
-      display: block;
-    }
-  </style>
-</head>
-<body>
+<meta charset="UTF-8">
+<title>BTC-USDT Net Volume</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
-<canvas id="netVolumeChart"></canvas>
+<style>
+body {
+  margin: 0;
+  background: #121417;
+  color: #e6e6e6;
+  font-family: Arial, sans-serif;
+}
+
+.wrapper {
+  max-width: 1100px;
+  margin: 30px auto;
+  padding: 0 10px;
+}
+
+.title {
+  text-align: center;
+  font-size: 18px;
+  margin-bottom: 10px;
+  color: #cfcfcf;
+}
+
+.sub {
+  text-align: center;
+  font-size: 13px;
+  color: #8a8a8a;
+  margin-bottom: 15px;
+}
+
+.tf-buttons {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin-bottom: 15px;
+}
+
+.tf-buttons button {
+  background: #2a2d33;
+  border: none;
+  color: #ccc;
+  padding: 6px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.tf-buttons button.active {
+  background: #3f434b;
+  color: #fff;
+}
+
+canvas {
+  width: 100% !important;
+  height: 420px !important;
+}
+</style>
+</head>
+
+<body>
+<div class="wrapper">
+
+  <div class="title">BTC-USDT · NET VOLUME</div>
+  <div class="sub">BINANCE</div>
+
+  <div class="tf-buttons">
+    <button onclick="setTF('1d')">1D</button>
+    <button onclick="setTF('4h')">4H</button>
+    <button onclick="setTF('30m')">30M</button>
+    <button onclick="setTF('15m')">15M</button>
+    <button onclick="setTF('5m')" class="active">5M</button>
+  </div>
+
+  <canvas id="chart"></canvas>
+</div>
 
 <script>
+let chart;
+let INTERVAL = '5m';
 const SYMBOL = 'BTCUSDT';
-const INTERVAL = '1h';
-const LIMIT = 100;
+const LIMIT = 120;
 
 async function loadData() {
   const url = `https://api.binance.com/api/v3/klines?symbol=${SYMBOL}&interval=${INTERVAL}&limit=${LIMIT}`;
@@ -36,39 +95,58 @@ async function loadData() {
   const colors = [];
 
   data.forEach(k => {
-    const time = new Date(k[0]).toLocaleString();
-    const quoteVolume = parseFloat(k[7]);
-    const takerBuyQuote = parseFloat(k[10]);
+    const time = new Date(k[0]).toLocaleDateString('ru-RU', {
+      day: '2-digit',
+      month: 'short'
+    });
 
-    const net = 2 * takerBuyQuote - quoteVolume;
+    const quote = +k[7];
+    const buy = +k[10];
+    const net = 2 * buy - quote;
 
     labels.push(time);
     values.push(net);
-    colors.push(net >= 0 ? '#00c176' : '#ff4d4d');
+    colors.push(net >= 0 ? '#1fc77b' : '#e04b4b');
   });
 
-  drawChart(labels, values, colors);
+  draw(labels, values, colors);
 }
 
-function drawChart(labels, values, colors) {
-  const ctx = document.getElementById('netVolumeChart').getContext('2d');
+function draw(labels, data, colors) {
+  if (chart) chart.destroy();
 
-  new Chart(ctx, {
+  chart = new Chart(document.getElementById('chart'), {
     type: 'bar',
     data: {
-      labels: labels,
+      labels,
       datasets: [{
-        data: values,
-        backgroundColor: colors
+        data,
+        backgroundColor: colors,
+        borderWidth: 0
       }]
     },
     options: {
-      plugins: { legend: { display: false } },
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: ctx => {
+              const v = ctx.raw / 1e6;
+              return `Net: ${v.toFixed(1)}M USDT`;
+            }
+          }
+        }
+      },
       scales: {
-        x: { ticks: { color: '#aaa' } },
+        x: {
+          grid: { display: false },
+          ticks: { color: '#888' }
+        },
         y: {
+          grid: { color: '#222' },
           ticks: {
-            color: '#aaa',
+            color: '#888',
             callback: v => (v / 1e6).toFixed(0) + 'M'
           }
         }
@@ -77,8 +155,15 @@ function drawChart(labels, values, colors) {
   });
 }
 
+function setTF(tf) {
+  INTERVAL = tf;
+  document.querySelectorAll('.tf-buttons button')
+    .forEach(b => b.classList.remove('active'));
+  event.target.classList.add('active');
+  loadData();
+}
+
 loadData();
 </script>
-
 </body>
 </html>
