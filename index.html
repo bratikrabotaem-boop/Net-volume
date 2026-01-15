@@ -2,35 +2,42 @@
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
 <title>BTCUSDT · Candles + Net Volume</title>
 
-<!-- TradingView Lightweight Charts -->
-<script src="https://unpkg.com/lightweight-charts/dist/lightweight-charts.standalone.production.js"></script>
+<!-- Lightweight Charts (STABLE CDN) -->
+<script src="https://cdn.jsdelivr.net/npm/lightweight-charts@4.1.1/dist/lightweight-charts.standalone.production.js"></script>
 
 <style>
-body {
+html, body {
   margin: 0;
+  padding: 0;
   background: #0f1115;
   color: #e6e6e6;
   font-family: Arial, sans-serif;
 }
 
 .wrapper {
+  width: 100%;
   max-width: 1200px;
-  margin: 20px auto;
+  margin: 0 auto;
 }
 
 #price {
-  height: 380px;
+  width: 100%;
+  height: 360px;
 }
 
 #volume {
+  width: 100%;
   height: 180px;
 }
 </style>
 </head>
 
 <body>
+
 <div class="wrapper">
   <div id="price"></div>
   <div id="volume"></div>
@@ -43,27 +50,28 @@ const LIMIT = 300;
 
 /* ---------- PRICE CHART ---------- */
 
-const priceChart = LightweightCharts.createChart(
-  document.getElementById('price'),
-  {
-    layout: {
-      background: { color: '#0f1115' },
-      textColor: '#aaa'
-    },
-    grid: {
-      vertLines: { color: '#1c1f26' },
-      horzLines: { color: '#1c1f26' }
-    },
-    rightPriceScale: {
-      borderColor: '#333'
-    },
-    timeScale: {
-      borderColor: '#333',
-      timeVisible: true,
-      secondsVisible: false
-    }
+const priceContainer = document.getElementById('price');
+const volumeContainer = document.getElementById('volume');
+
+const priceChart = LightweightCharts.createChart(priceContainer, {
+  width: priceContainer.clientWidth,
+  height: priceContainer.clientHeight,
+  layout: {
+    background: { color: '#0f1115' },
+    textColor: '#aaa'
+  },
+  grid: {
+    vertLines: { color: '#1c1f26' },
+    horzLines: { color: '#1c1f26' }
+  },
+  rightPriceScale: {
+    borderColor: '#333'
+  },
+  timeScale: {
+    timeVisible: true,
+    secondsVisible: false
   }
-);
+});
 
 const candleSeries = priceChart.addCandlestickSeries({
   upColor: '#1fc77b',
@@ -75,40 +83,37 @@ const candleSeries = priceChart.addCandlestickSeries({
 
 /* ---------- VOLUME CHART ---------- */
 
-const volumeChart = LightweightCharts.createChart(
-  document.getElementById('volume'),
-  {
-    layout: {
-      background: { color: '#0f1115' },
-      textColor: '#aaa'
-    },
-    grid: {
-      vertLines: { color: '#1c1f26' },
-      horzLines: { color: '#1c1f26' }
-    },
-    rightPriceScale: {
-      borderColor: '#333'
-    },
-    timeScale: {
-      visible: false
-    }
+const volumeChart = LightweightCharts.createChart(volumeContainer, {
+  width: volumeContainer.clientWidth,
+  height: volumeContainer.clientHeight,
+  layout: {
+    background: { color: '#0f1115' },
+    textColor: '#aaa'
+  },
+  grid: {
+    vertLines: { color: '#1c1f26' },
+    horzLines: { color: '#1c1f26' }
+  },
+  rightPriceScale: {
+    borderColor: '#333'
+  },
+  timeScale: {
+    visible: false
   }
-);
+});
 
 const volumeSeries = volumeChart.addHistogramSeries({
-  priceFormat: {
-    type: 'volume'
-  },
+  priceFormat: { type: 'volume' },
   priceScaleId: ''
 });
 
-/* ---------- SYNC TIME SCALE ---------- */
+/* ---------- SYNC ---------- */
 
 priceChart.timeScale().subscribeVisibleTimeRangeChange(range => {
   volumeChart.timeScale().setVisibleRange(range);
 });
 
-/* ---------- LOAD BINANCE DATA ---------- */
+/* ---------- LOAD DATA ---------- */
 
 async function loadData() {
   const res = await fetch(
@@ -127,13 +132,7 @@ async function loadData() {
     const low  = +k[3];
     const close= +k[4];
 
-    candles.push({
-      time,
-      open,
-      high,
-      low,
-      close
-    });
+    candles.push({ time, open, high, low, close });
 
     const quote = +k[7];
     const buy = +k[10];
@@ -152,7 +151,15 @@ async function loadData() {
   priceChart.timeScale().fitContent();
 }
 
+/* ---------- RESIZE FIX (ВАЖНО ДЛЯ iOS) ---------- */
+
+window.addEventListener('resize', () => {
+  priceChart.resize(priceContainer.clientWidth, priceContainer.clientHeight);
+  volumeChart.resize(volumeContainer.clientWidth, volumeContainer.clientHeight);
+});
+
 loadData();
 </script>
+
 </body>
 </html>
