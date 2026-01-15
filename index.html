@@ -78,8 +78,13 @@ const volumeChart = LightweightCharts.createChart(
   document.getElementById('volume'),
   {
     ...commonOpts,
-    rightPriceScale: { visible:false },
-    leftPriceScale: { visible:true }
+    rightPriceScale: {
+      visible: true,
+      borderColor: '#1e2228'
+    },
+    leftPriceScale: {
+      visible: false
+    }
   }
 );
 const volume = volumeChart.addHistogramSeries({
