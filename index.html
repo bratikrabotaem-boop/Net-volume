@@ -22,46 +22,45 @@ body {
 .tv-wrapper {
   width: 100%;
   height: 520px;
-  margin-bottom: 25px;
+  margin-bottom: 20px;
   border-radius: 6px;
   overflow: hidden;
-  background: #0f1114;
 }
 
 .title {
   text-align: center;
   font-size: 18px;
   margin-bottom: 6px;
-  color: #cfcfcf;
 }
 
 .sub {
   text-align: center;
   font-size: 13px;
   color: #8a8a8a;
-  margin-bottom: 14px;
+  margin-bottom: 10px;
 }
 
-.tf-buttons {
+.info {
+  text-align: center;
+  font-size: 14px;
+  margin-bottom: 8px;
+}
+
+.nav {
   display: flex;
   justify-content: center;
-  gap: 8px;
-  margin-bottom: 15px;
+  gap: 20px;
+  margin-bottom: 10px;
 }
 
-.tf-buttons button {
+.nav button {
   background: #2a2d33;
   border: none;
-  color: #ccc;
-  padding: 6px 12px;
+  color: #fff;
+  font-size: 18px;
+  padding: 6px 14px;
   border-radius: 4px;
   cursor: pointer;
-  font-size: 13px;
-}
-
-.tf-buttons button.active {
-  background: #3f434b;
-  color: #fff;
 }
 
 canvas {
@@ -77,21 +76,19 @@ canvas {
   <!-- TradingView -->
   <div class="tv-wrapper">
     <iframe
-      src="https://s.tradingview.com/widgetembed/?symbol=BINANCE:BTCUSDT&interval=60&theme=dark&style=1&hidevolume=0"
-      style="width:100%; height:100%; border:0;"
-      allowfullscreen>
+      src="https://s.tradingview.com/widgetembed/?symbol=BINANCE:BTCUSDT&interval=60&theme=dark&style=1"
+      style="width:100%; height:100%; border:0;">
     </iframe>
   </div>
 
   <div class="title">BTC-USDT · NET VOLUME</div>
   <div class="sub">BINANCE</div>
 
-  <div class="tf-buttons">
-    <button onclick="setTF('1d')">1D</button>
-    <button onclick="setTF('4h')">4H</button>
-    <button onclick="setTF('30m')">30M</button>
-    <button onclick="setTF('15m')">15M</button>
-    <button onclick="setTF('5m')" class="active">5M</button>
+  <div class="info" id="info"></div>
+
+  <div class="nav">
+    <button onclick="move(-1)">◀</button>
+    <button onclick="move(1)">▶</button>
   </div>
 
   <canvas id="chart"></canvas>
@@ -99,73 +96,59 @@ canvas {
 
 <script>
 let chart;
-let INTERVAL = '5m';
-const SYMBOL = 'BTCUSDT';
-const LIMIT = 200;
+let index = 0;
+let times = [];
+let values = [];
 
 const pad = n => String(n).padStart(2, '0');
-
-function formatDate(d) {
-  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
-}
+const fmt = d =>
+  `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
 
 async function loadData() {
-  const url = `https://api.binance.com/api/v3/klines?symbol=${SYMBOL}&interval=${INTERVAL}&limit=${LIMIT}`;
-  const res = await fetch(url);
+  const res = await fetch(
+    'https://api.binance.com/api/v3/klines?symbol=BTCUSDT&interval=5m&limit=120'
+  );
   const data = await res.json();
 
-  const values = [];
-  const colors = [];
-  const times = [];
+  times = [];
+  values = [];
 
   data.forEach(k => {
-    const d = new Date(k[0]);
-
-    const quote = +k[7];
     const buy = +k[10];
-    const net = 2 * buy - quote;
-
-    values.push(net);
-    colors.push(net >= 0 ? '#1fc77b' : '#e04b4b');
-    times.push(d);
+    const quote = +k[7];
+    values.push(2 * buy - quote);
+    times.push(new Date(k[0]));
   });
 
-  draw(values, colors, times);
+  index = values.length - 1;
+  draw();
+  updateInfo();
 }
 
-function draw(values, colors, times) {
+function draw() {
   if (chart) chart.destroy();
 
-  chart = new Chart(document.getElementById('chart'), {
+  chart = new Chart(chartEl(), {
     type: 'bar',
     data: {
       labels: values.map(() => ''),
       datasets: [{
         data: values,
-        backgroundColor: colors
+        backgroundColor: values.map((v, i) =>
+          i === index
+            ? '#ffd166'
+            : v >= 0 ? '#1fc77b' : '#e04b4b'
+        )
       }]
     },
     options: {
-      maintainAspectRatio: false,
-      plugins: {
-        legend: { display: false },
-        tooltip: {
-          callbacks: {
-            title: ctx => formatDate(times[ctx[0].dataIndex]),
-            label: ctx => `Net: ${(ctx.raw / 1e6).toFixed(2)}M USDT`
-          }
-        }
-      },
+      animation: false,
+      plugins: { legend: { display: false } },
       scales: {
-        x: {
-          ticks: { display: false },
-          grid: { display: false }
-        },
+        x: { display: false },
         y: {
-          grid: { color: '#222' },
           ticks: {
-            color: '#888',
-            callback: v => (v / 1e6).toFixed(0) + 'M'
+            callback: v => (v / 1e6).toFixed(1) + 'M'
           }
         }
       }
@@ -173,12 +156,20 @@ function draw(values, colors, times) {
   });
 }
 
-function setTF(tf) {
-  INTERVAL = tf;
-  document.querySelectorAll('.tf-buttons button')
-    .forEach(b => b.classList.remove('active'));
-  event.target.classList.add('active');
-  loadData();
+function move(step) {
+  index = Math.max(0, Math.min(values.length - 1, index + step));
+  draw();
+  updateInfo();
+}
+
+function updateInfo() {
+  const d = times[index];
+  document.getElementById('info').innerHTML =
+    `<b>${fmt(d)}</b> · Net: ${(values[index] / 1e6).toFixed(2)}M USDT`;
+}
+
+function chartEl() {
+  return document.getElementById('chart');
 }
 
 loadData();
