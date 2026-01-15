@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-<meta charset="UTF-8" />
+<meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>BTC-USDT · Candles + Net Volume</title>
 
@@ -61,11 +61,6 @@ body {
   font-size: 14px;
   margin-bottom: 8px;
 }
-
-#chart {
-  width: 100%;
-  height: 520px;
-}
 </style>
 </head>
 
@@ -86,13 +81,16 @@ body {
 
   <div class="info" id="info"></div>
 
-  <div id="chart"></div>
+  <!-- ВАЖНО: жёсткая высота -->
+  <div id="chart" style="width:100%; height:520px;"></div>
 </div>
 
 <script>
 let INTERVAL = '1h';
 
-const chart = LightweightCharts.createChart(document.getElementById('chart'), {
+const chartContainer = document.getElementById('chart');
+
+const chart = LightweightCharts.createChart(chartContainer, {
   layout: {
     background: { color: '#121417' },
     textColor: '#cccccc'
@@ -106,11 +104,7 @@ const chart = LightweightCharts.createChart(document.getElementById('chart'), {
   },
   timeScale: {
     borderColor: '#1e2228',
-    timeVisible: true,
-    secondsVisible: false
-  },
-  crosshair: {
-    mode: LightweightCharts.CrosshairMode.Normal
+    timeVisible: true
   }
 });
 
@@ -126,17 +120,15 @@ const candleSeries = chart.addCandlestickSeries({
 const volumeSeries = chart.addHistogramSeries({
   priceScaleId: '',
   priceFormat: { type: 'volume' },
-  scaleMargins: {
-    top: 0.75,
-    bottom: 0
-  }
+  scaleMargins: { top: 0.75, bottom: 0 }
 });
 
-const pad = n => String(n).padStart(2, '0');
-const fmt = t => {
-  const d = new Date(t * 1000);
-  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
-};
+function resizeChart() {
+  chart.resize(chartContainer.clientWidth, chartContainer.clientHeight);
+}
+
+window.addEventListener('load', resizeChart);
+window.addEventListener('orientationchange', resizeChart);
 
 async function loadData() {
   const res = await fetch(
@@ -158,9 +150,7 @@ async function loadData() {
       close: +k[4]
     });
 
-    const buy = +k[10];
-    const quote = +k[7];
-    const net = 2 * buy - quote;
+    const net = 2 * k[10] - k[7];
 
     volumes.push({
       time,
@@ -171,11 +161,6 @@ async function loadData() {
 
   candleSeries.setData(candles);
   volumeSeries.setData(volumes);
-
-  const last = data[data.length - 1];
-  document.getElementById('info').innerHTML =
-    `<b>${fmt(last[0] / 1000)}</b> · Net: ${( (2*last[10]-last[7]) / 1e6).toFixed(2)}M USDT`;
-
   chart.timeScale().fitContent();
 }
 
