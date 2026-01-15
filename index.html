@@ -13,12 +13,20 @@ body {
   color: #e6e6e6;
   font-family: Arial, sans-serif;
 }
+
 .wrapper {
   max-width: 1100px;
   margin: 20px auto;
+  padding: 0 10px;
 }
-#priceChart { height: 360px !important; }
-#volumeChart { height: 180px !important; }
+
+#priceChart {
+  height: 360px !important;
+}
+
+#volumeChart {
+  height: 180px !important;
+}
 </style>
 </head>
 
@@ -30,8 +38,10 @@ body {
 
 <script>
 const SYMBOL = 'BTCUSDT';
-const LIMIT = 120;
 const INTERVAL = '5m';
+const LIMIT = 120;
+
+let priceChart, volumeChart;
 
 async function loadData() {
   const res = await fetch(
@@ -40,57 +50,64 @@ async function loadData() {
   const k = await res.json();
 
   const labels = [];
-  const bodyData = [];
+  const body = [];
+  const base = [];
   const bodyColors = [];
-  const wickHigh = [];
-  const wickLow = [];
+  const high = [];
+  const low = [];
   const netVolume = [];
   const volColors = [];
 
   k.forEach(c => {
     labels.push('');
 
-    const o = +c[1], h = +c[2], l = +c[3], cl = +c[4];
+    const o = +c[1];
+    const h = +c[2];
+    const l = +c[3];
+    const cl = +c[4];
     const up = cl >= o;
 
-    bodyData.push([o, cl]);
+    body.push(Math.abs(cl - o));
+    base.push(Math.min(o, cl));
     bodyColors.push(up ? '#1fc77b' : '#e04b4b');
 
-    wickHigh.push(h);
-    wickLow.push(l);
+    high.push(h);
+    low.push(l);
 
     const net = 2 * (+c[10]) - (+c[7]);
     netVolume.push(net);
     volColors.push(net >= 0 ? '#1fc77b' : '#e04b4b');
   });
 
-  drawPrice(labels, bodyData, bodyColors, wickHigh, wickLow);
+  drawPrice(labels, body, base, bodyColors, high, low);
   drawVolume(labels, netVolume, volColors);
 }
 
-function drawPrice(labels, bodies, colors, highs, lows) {
-  new Chart(document.getElementById('priceChart'), {
+function drawPrice(labels, body, base, colors, high, low) {
+  if (priceChart) priceChart.destroy();
+
+  priceChart = new Chart(document.getElementById('priceChart'), {
     data: {
       labels,
       datasets: [
         {
           type: 'bar',
-          data: bodies.map(v => v[1] - v[0]),
-          base: bodies.map(v => v[0]),
+          data: body,
+          base: base,
           backgroundColor: colors,
-          barPercentage: 0.7,
+          barPercentage: 0.6,
           categoryPercentage: 1
         },
         {
           type: 'line',
-          data: highs,
+          data: high,
           borderColor: '#999',
           pointRadius: 0,
           borderWidth: 1
         },
         {
           type: 'line',
-          data: lows,
+          data: low,
           borderColor: '#999',
           pointRadius: 0,
           borderWidth: 1
@@ -99,7 +116,9 @@ function drawPrice(labels, bodies, colors, highs, lows) {
     },
     options: {
       maintainAspectRatio: false,
-      plugins: { legend: { display: false } },
+      plugins: {
+        legend: { display: false }
+      },
       scales: {
         x: { display: false },
         y: {
@@ -112,7 +131,9 @@ function drawPrice(labels, bodies, colors, highs, lows) {
 }
 
 function drawVolume(labels, data, colors) {
-  new Chart(document.getElementById('volumeChart'), {
+  if (volumeChart) volumeChart.destroy();
+
+  volumeChart = new Chart(document.getElementById('volumeChart'), {
     type: 'bar',
     data: {
       labels,
@@ -125,10 +146,14 @@ function drawVolume(labels, data, colors) {
     },
     options: {
       maintainAspectRatio: false,
-      plugins: { legend: { display: false } },
+      plugins: {
+        legend: { display: false }
+      },
       scales: {
         x: { display: false },
-        y: { grid: { color: '#222' } }
+        y: {
+          grid: { color: '#222' }
+        }
       }
     }
   });
