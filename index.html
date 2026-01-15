@@ -1,50 +1,8 @@
 <!DOCTYPE html>
 <html>
-<head>
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>TEST</title>
-
-<script src="https://unpkg.com/lightweight-charts/dist/lightweight-charts.standalone.production.js"></script>
-
-<style>
-body {
-  margin: 0;
-  background: #111;
-}
-#chart {
-  width: 100vw;
-  height: 400px;
-}
-</style>
-</head>
-
 <body>
-<div id="chart"></div>
-
 <script>
-console.log('script start');
-
-const container = document.getElementById('chart');
-console.log('container', container.clientWidth, container.clientHeight);
-
-const chart = LightweightCharts.createChart(container, {
-  layout: {
-    background: { color: '#111' },
-    textColor: '#fff'
-  }
-});
-
-const series = chart.addCandlestickSeries();
-
-series.setData([
-  { time: 1700000000, open: 100, high: 120, low: 90, close: 110 },
-  { time: 1700003600, open: 110, high: 130, low: 105, close: 125 },
-  { time: 1700007200, open: 125, high: 140, low: 120, close: 135 }
-]);
-
-chart.timeScale().fitContent();
-
-console.log('chart rendered');
+alert('JS работает');
 </script>
 </body>
 </html>
