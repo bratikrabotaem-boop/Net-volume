@@ -22,7 +22,7 @@ body {
 .title {
   text-align: center;
   font-size: 18px;
-  margin-bottom: 10px;
+  margin-bottom: 6px;
   color: #cfcfcf;
 }
 
@@ -30,7 +30,7 @@ body {
   text-align: center;
   font-size: 13px;
   color: #8a8a8a;
-  margin-bottom: 15px;
+  margin-bottom: 14px;
 }
 
 .tf-buttons {
@@ -83,7 +83,7 @@ canvas {
 let chart;
 let INTERVAL = '5m';
 const SYMBOL = 'BTCUSDT';
-const LIMIT = 120;
+const LIMIT = 180;
 
 async function loadData() {
   const url = `https://api.binance.com/api/v3/klines?symbol=${SYMBOL}&interval=${INTERVAL}&limit=${LIMIT}`;
@@ -94,17 +94,23 @@ async function loadData() {
   const values = [];
   const colors = [];
 
+  let lastMonth = '';
+
   data.forEach(k => {
-    const time = new Date(k[0]).toLocaleDateString('ru-RU', {
-      day: '2-digit',
-      month: 'short'
+    const d = new Date(k[0]);
+    const monthLabel = d.toLocaleDateString('en-US', {
+      month: 'short',
+      year: 'numeric'
     });
+
+    const label = monthLabel !== lastMonth ? monthLabel : '';
+    lastMonth = monthLabel;
 
     const quote = +k[7];
     const buy = +k[10];
     const net = 2 * buy - quote;
 
-    labels.push(time);
+    labels.push(label);
     values.push(net);
     colors.push(net >= 0 ? '#1fc77b' : '#e04b4b');
   });
@@ -131,17 +137,19 @@ function draw(labels, data, colors) {
         legend: { display: false },
         tooltip: {
           callbacks: {
-            label: ctx => {
-              const v = ctx.raw / 1e6;
-              return `Net: ${v.toFixed(1)}M USDT`;
-            }
+            label: ctx => `Net: ${(ctx.raw / 1e6).toFixed(1)}M USDT`
           }
         }
       },
       scales: {
         x: {
           grid: { display: false },
-          ticks: { color: '#888' }
+          ticks: {
+            color: '#9a9a9a',
+            autoSkip: false,
+            maxRotation: 0,
+            font: { size: 12, weight: 'bold' }
+          }
         },
         y: {
           grid: { color: '#222' },
