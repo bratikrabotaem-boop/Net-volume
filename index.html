@@ -22,46 +22,67 @@ body {
 .tv-wrapper {
   width: 100%;
   height: 520px;
-  margin-bottom: 25px;
+  margin-bottom: 20px;
   border-radius: 6px;
   overflow: hidden;
-  background: #0f1114;
 }
 
 .title {
   text-align: center;
   font-size: 18px;
-  margin-bottom: 6px;
-  color: #cfcfcf;
+  margin-bottom: 4px;
 }
 
 .sub {
   text-align: center;
   font-size: 13px;
   color: #8a8a8a;
-  margin-bottom: 14px;
+  margin-bottom: 8px;
 }
 
 .tf-buttons {
   display: flex;
   justify-content: center;
   gap: 8px;
-  margin-bottom: 15px;
+  margin-bottom: 8px;
 }
 
 .tf-buttons button {
   background: #2a2d33;
   border: none;
   color: #ccc;
-  padding: 6px 12px;
+  padding: 5px 10px;
   border-radius: 4px;
   cursor: pointer;
-  font-size: 13px;
+  font-size: 12px;
 }
 
 .tf-buttons button.active {
   background: #3f434b;
   color: #fff;
+}
+
+.info {
+  text-align: center;
+  font-size: 14px;
+  margin-bottom: 6px;
+}
+
+.nav {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.nav button {
+  background: #2a2d33;
+  border: none;
+  color: #fff;
+  font-size: 16px;
+  padding: 6px 12px;
+  border-radius: 4px;
+  cursor: pointer;
 }
 
 canvas {
@@ -74,29 +95,18 @@ canvas {
 <body>
 <div class="wrapper">
 
-  <!-- TradingView BTC/USDT -->
+  <!-- TradingView -->
   <div class="tv-wrapper">
     <iframe
-      src="https://s.tradingview.com/widgetembed/?frameElementId=tradingview_btc
-      &symbol=BINANCE:BTCUSDT
-      &interval=60
-      &hidesidetoolbar=1
-      &hidetoptoolbar=0
-      &theme=dark
-      &style=1
-      &timezone=Etc%2FUTC
-      &withdateranges=1
-      &saveimage=0
-      &hidevolume=0"
-      style="width:100%; height:100%; border:0;"
-      allowfullscreen>
+      src="https://s.tradingview.com/widgetembed/?symbol=BINANCE:BTCUSDT&interval=60&theme=dark&style=1"
+      style="width:100%; height:100%; border:0;">
     </iframe>
   </div>
 
-  <!-- Net Volume -->
   <div class="title">BTC-USDT · NET VOLUME</div>
   <div class="sub">BINANCE</div>
 
+  <!-- Timeframes -->
   <div class="tf-buttons">
     <button onclick="setTF('1d')">1D</button>
     <button onclick="setTF('4h')">4H</button>
@@ -105,91 +115,91 @@ canvas {
     <button onclick="setTF('5m')" class="active">5M</button>
   </div>
 
+  <div class="info" id="info"></div>
+
+  <!-- Navigation -->
+  <div class="nav">
+    <button onclick="move(-10)">⏮</button>
+    <button onclick="move(-1)">◀</button>
+    <button onclick="move(1)">▶</button>
+    <button onclick="move(10)">⏭</button>
+  </div>
+
   <canvas id="chart"></canvas>
 </div>
 
 <script>
 let chart;
 let INTERVAL = '5m';
-const SYMBOL = 'BTCUSDT';
-const LIMIT = 180;
+let index = 0;
+let times = [];
+let values = [];
+
+const pad = n => String(n).padStart(2, '0');
+const fmt = d =>
+  `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
 
 async function loadData() {
-  const url = `https://api.binance.com/api/v3/klines?symbol=${SYMBOL}&interval=${INTERVAL}&limit=${LIMIT}`;
-  const res = await fetch(url);
+  const res = await fetch(
+    `https://api.binance.com/api/v3/klines?symbol=BTCUSDT&interval=${INTERVAL}&limit=200`
+  );
   const data = await res.json();
 
-  const labels = [];
-  const values = [];
-  const colors = [];
-
-  let lastMonth = '';
+  times = [];
+  values = [];
 
   data.forEach(k => {
-    const d = new Date(k[0]);
-    const monthLabel = d.toLocaleDateString('en-US', {
-      month: 'short',
-      year: 'numeric'
-    });
-
-    const label = monthLabel !== lastMonth ? monthLabel : '';
-    lastMonth = monthLabel;
-
-    const quote = +k[7];
     const buy = +k[10];
-    const net = 2 * buy - quote;
-
-    labels.push(label);
-    values.push(net);
-    colors.push(net >= 0 ? '#1fc77b' : '#e04b4b');
+    const quote = +k[7];
+    values.push(2 * buy - quote);
+    times.push(new Date(k[0]));
   });
 
-  draw(labels, values, colors);
+  index = values.length - 1;
+  draw();
+  updateInfo();
 }
 
-function draw(labels, data, colors) {
+function draw() {
   if (chart) chart.destroy();
 
   chart = new Chart(document.getElementById('chart'), {
     type: 'bar',
     data: {
-      labels,
+      labels: values.map(() => ''),
       datasets: [{
-        data,
-        backgroundColor: colors,
-        borderWidth: 0
+        data: values,
+        backgroundColor: values.map((v, i) =>
+          i === index
+            ? '#ffd166'
+            : v >= 0 ? '#1fc77b' : '#e04b4b'
+        )
       }]
     },
     options: {
-      maintainAspectRatio: false,
-      plugins: {
-        legend: { display: false },
-        tooltip: {
-          callbacks: {
-            label: ctx => `Net: ${(ctx.raw / 1e6).toFixed(1)}M USDT`
-          }
-        }
-      },
+      animation: false,
+      plugins: { legend: { display: false } },
       scales: {
-        x: {
-          grid: { display: false },
-          ticks: {
-            color: '#9a9a9a',
-            autoSkip: false,
-            maxRotation: 0,
-            font: { size: 12, weight: 'bold' }
-          }
-        },
+        x: { display: false },
         y: {
-          grid: { color: '#222' },
           ticks: {
-            color: '#888',
-            callback: v => (v / 1e6).toFixed(0) + 'M'
+            callback: v => (v / 1e6).toFixed(1) + 'M'
           }
         }
       }
     }
   });
+}
+
+function move(step) {
+  index = Math.max(0, Math.min(values.length - 1, index + step));
+  draw();
+  updateInfo();
+}
+
+function updateInfo() {
+  document.getElementById('info').innerHTML =
+    `<b>${fmt(times[index])}</b> · Net: ${(values[index] / 1e6).toFixed(2)}M USDT`;
 }
 
 function setTF(tf) {
