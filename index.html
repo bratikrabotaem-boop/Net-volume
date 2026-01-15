@@ -2,9 +2,10 @@
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
-<title>BTCUSDT Price + Net Volume</title>
+<title>BTCUSDT Candles + Net Volume</title>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-chart-financial"></script>
 
 <style>
 body {
@@ -68,7 +69,7 @@ body {
 <div class="wrapper">
 
   <div class="title">BTC / USDT</div>
-  <div class="sub">BINANCE · PRICE + NET VOLUME</div>
+  <div class="sub">BINANCE · CANDLESTICK + NET VOLUME</div>
 
   <div class="tf-buttons">
     <button onclick="setTF('1d')">1D</button>
@@ -97,18 +98,25 @@ async function loadData() {
   const data = await res.json();
 
   const labels = [];
-  const prices = [];
+  const candles = [];
   const netVolume = [];
   const colors = [];
 
   data.forEach(k => {
-    const t = new Date(k[0]).toLocaleTimeString([], {
+    const time = new Date(k[0]).toLocaleTimeString([], {
       hour: '2-digit',
       minute: '2-digit'
     });
 
-    labels.push(t);
-    prices.push(+k[4]);
+    labels.push(time);
+
+    candles.push({
+      x: time,
+      o: +k[1],
+      h: +k[2],
+      l: +k[3],
+      c: +k[4]
+    });
 
     const quote = +k[7];
     const buy = +k[10];
@@ -118,87 +126,88 @@ async function loadData() {
     colors.push(net >= 0 ? '#1fc77b' : '#e04b4b');
   });
 
-  drawPrice(labels, prices);
+  drawCandles(labels, candles);
   drawVolume(labels, netVolume, colors);
 }
 
-function drawPrice(labels, prices) {
+function drawCandles(labels, data) {
   if (priceChart) priceChart.destroy();
 
-  priceChart = new Chart(priceChartCanvas(), {
-    type: 'line',
-    data: {
-      labels,
-      datasets: [{
-        data: prices,
-        borderColor: '#e6e6e6',
-        borderWidth: 1.5,
-        pointRadius: 0,
-        tension: 0
-      }]
-    },
-    options: {
-      maintainAspectRatio: false,
-      plugins: { legend: { display: false } },
-      scales: {
-        x: {
-          grid: { display: false },
-          ticks: { display: false }
+  priceChart = new Chart(
+    document.getElementById('priceChart'),
+    {
+      type: 'candlestick',
+      data: {
+        labels,
+        datasets: [{
+          data,
+          upColor: '#1fc77b',
+          downColor: '#e04b4b',
+          borderColor: '#999',
+          wickColor: '#999'
+        }]
+      },
+      options: {
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false }
         },
-        y: {
-          position: 'right',
-          grid: { color: '#1e1e1e' },
-          ticks: { color: '#9a9a9a' }
+        scales: {
+          x: {
+            grid: { display: false },
+            ticks: { display: false }
+          },
+          y: {
+            position: 'right',
+            grid: { color: '#1e1e1e' },
+            ticks: { color: '#9a9a9a' }
+          }
         }
       }
     }
-  });
+  );
 }
 
 function drawVolume(labels, data, colors) {
   if (volumeChart) volumeChart.destroy();
 
-  volumeChart = new Chart(volumeChartCanvas(), {
-    type: 'bar',
-    data: {
-      labels,
-      datasets: [{
-        data,
-        backgroundColor: colors,
-        barPercentage: 1,
-        categoryPercentage: 1
-      }]
-    },
-    options: {
-      maintainAspectRatio: false,
-      plugins: { legend: { display: false } },
-      scales: {
-        x: {
-          grid: { display: false },
-          ticks: {
-            color: '#888',
-            autoSkip: false,
-            maxRotation: 0
-          }
+  volumeChart = new Chart(
+    document.getElementById('volumeChart'),
+    {
+      type: 'bar',
+      data: {
+        labels,
+        datasets: [{
+          data,
+          backgroundColor: colors,
+          barPercentage: 1,
+          categoryPercentage: 1
+        }]
+      },
+      options: {
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false }
         },
-        y: {
-          grid: { color: '#1e1e1e' },
-          ticks: {
-            color: '#888',
-            callback: v => (v / 1e6).toFixed(0) + 'M'
+        scales: {
+          x: {
+            grid: { display: false },
+            ticks: {
+              autoSkip: false,
+              color: '#888'
+            }
+          },
+          y: {
+            grid: { color: '#1e1e1e' },
+            ticks: {
+              color: '#888',
+              callback: v => (v / 1e6).toFixed(0) + 'M'
+            }
           }
         }
       }
     }
-  });
-}
-
-function priceChartCanvas() {
-  return document.getElementById('priceChart');
-}
-
-function volumeChartCanvas() {
-  return document.getElementById('volumeChart');
+  );
 }
 
 function setTF(tf) {
