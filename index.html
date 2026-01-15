@@ -1,178 +1,50 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html>
 <head>
-<meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>BTC-USDT · Candles + Net Volume</title>
+<title>TEST</title>
 
 <script src="https://unpkg.com/lightweight-charts/dist/lightweight-charts.standalone.production.js"></script>
 
 <style>
 body {
   margin: 0;
-  background: #121417;
-  color: #e6e6e6;
-  font-family: Arial, sans-serif;
+  background: #111;
 }
-
-.wrapper {
-  max-width: 1100px;
-  margin: 20px auto;
-  padding: 0 10px;
-}
-
-.title {
-  text-align: center;
-  font-size: 18px;
-  margin-bottom: 4px;
-}
-
-.sub {
-  text-align: center;
-  font-size: 13px;
-  color: #8a8a8a;
-  margin-bottom: 8px;
-}
-
-.tf-buttons {
-  display: flex;
-  justify-content: center;
-  gap: 8px;
-  margin-bottom: 10px;
-}
-
-.tf-buttons button {
-  background: #2a2d33;
-  border: none;
-  color: #ccc;
-  padding: 5px 10px;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 12px;
-}
-
-.tf-buttons button.active {
-  background: #3f434b;
-  color: #fff;
-}
-
-.info {
-  text-align: center;
-  font-size: 14px;
-  margin-bottom: 8px;
+#chart {
+  width: 100vw;
+  height: 400px;
 }
 </style>
 </head>
 
 <body>
-<div class="wrapper">
-
-  <div class="title">BTC-USDT · CANDLES + NET VOLUME</div>
-  <div class="sub">BINANCE · SPOT</div>
-
-  <div class="tf-buttons">
-    <button onclick="setTF('1d')">1D</button>
-    <button onclick="setTF('4h')">4H</button>
-    <button onclick="setTF('1h')" class="active">1H</button>
-    <button onclick="setTF('30m')">30M</button>
-    <button onclick="setTF('15m')">15M</button>
-    <button onclick="setTF('5m')">5M</button>
-  </div>
-
-  <div class="info" id="info"></div>
-
-  <!-- ВАЖНО: жёсткая высота -->
-  <div id="chart" style="width:100%; height:520px;"></div>
-</div>
+<div id="chart"></div>
 
 <script>
-let INTERVAL = '1h';
+console.log('script start');
 
-const chartContainer = document.getElementById('chart');
+const container = document.getElementById('chart');
+console.log('container', container.clientWidth, container.clientHeight);
 
-const chart = LightweightCharts.createChart(chartContainer, {
+const chart = LightweightCharts.createChart(container, {
   layout: {
-    background: { color: '#121417' },
-    textColor: '#cccccc'
-  },
-  grid: {
-    vertLines: { color: '#1e2228' },
-    horzLines: { color: '#1e2228' }
-  },
-  rightPriceScale: {
-    borderColor: '#1e2228'
-  },
-  timeScale: {
-    borderColor: '#1e2228',
-    timeVisible: true
+    background: { color: '#111' },
+    textColor: '#fff'
   }
 });
 
-const candleSeries = chart.addCandlestickSeries({
-  upColor: '#1fc77b',
-  downColor: '#e04b4b',
-  borderUpColor: '#1fc77b',
-  borderDownColor: '#e04b4b',
-  wickUpColor: '#1fc77b',
-  wickDownColor: '#e04b4b'
-});
+const series = chart.addCandlestickSeries();
 
-const volumeSeries = chart.addHistogramSeries({
-  priceScaleId: '',
-  priceFormat: { type: 'volume' },
-  scaleMargins: { top: 0.75, bottom: 0 }
-});
+series.setData([
+  { time: 1700000000, open: 100, high: 120, low: 90, close: 110 },
+  { time: 1700003600, open: 110, high: 130, low: 105, close: 125 },
+  { time: 1700007200, open: 125, high: 140, low: 120, close: 135 }
+]);
 
-function resizeChart() {
-  chart.resize(chartContainer.clientWidth, chartContainer.clientHeight);
-}
+chart.timeScale().fitContent();
 
-window.addEventListener('load', resizeChart);
-window.addEventListener('orientationchange', resizeChart);
-
-async function loadData() {
-  const res = await fetch(
-    `https://api.binance.com/api/v3/klines?symbol=BTCUSDT&interval=${INTERVAL}&limit=200`
-  );
-  const data = await res.json();
-
-  const candles = [];
-  const volumes = [];
-
-  data.forEach(k => {
-    const time = Math.floor(k[0] / 1000);
-
-    candles.push({
-      time,
-      open: +k[1],
-      high: +k[2],
-      low: +k[3],
-      close: +k[4]
-    });
-
-    const net = 2 * k[10] - k[7];
-
-    volumes.push({
-      time,
-      value: Math.abs(net),
-      color: net >= 0 ? '#1fc77b' : '#e04b4b'
-    });
-  });
-
-  candleSeries.setData(candles);
-  volumeSeries.setData(volumes);
-  chart.timeScale().fitContent();
-}
-
-function setTF(tf) {
-  INTERVAL = tf;
-  document.querySelectorAll('.tf-buttons button')
-    .forEach(b => b.classList.remove('active'));
-  event.target.classList.add('active');
-  loadData();
-}
-
-loadData();
+console.log('chart rendered');
 </script>
 </body>
 </html>
