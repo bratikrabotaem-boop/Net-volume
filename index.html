@@ -28,6 +28,7 @@ body {
 .tf-buttons button {
   background:#2a2d33; border:0; color:#ccc;
   padding:5px 10px; border-radius:4px; font-size:12px;
+  cursor:pointer;
 }
 .tf-buttons button.active { background:#3f434b; color:#fff; }
 
@@ -56,6 +57,7 @@ body {
 
 <script>
 let INTERVAL = '1h';
+const SCALE_WIDTH = 80; // ← ОДИНАКОВАЯ ширина шкал
 
 const commonOpts = {
   layout: { background:{color:'#121417'}, textColor:'#ccc' },
@@ -65,8 +67,18 @@ const commonOpts = {
 
 // ===== PRICE CHART =====
 const priceChart = LightweightCharts.createChart(
-  document.getElementById('price'), commonOpts
+  document.getElementById('price'),
+  {
+    ...commonOpts,
+    rightPriceScale: {
+      visible:true,
+      borderColor:'#1e2228',
+      minimumWidth: SCALE_WIDTH
+    },
+    leftPriceScale: { visible:false }
+  }
 );
+
 const candles = priceChart.addCandlestickSeries({
   upColor:'#1fc77b', downColor:'#e04b4b',
   borderUpColor:'#1fc77b', borderDownColor:'#e04b4b',
@@ -79,20 +91,20 @@ const volumeChart = LightweightCharts.createChart(
   {
     ...commonOpts,
     rightPriceScale: {
-      visible: true,
-      borderColor: '#1e2228'
+      visible:true,
+      borderColor:'#1e2228',
+      minimumWidth: SCALE_WIDTH   // ← ТО ЖЕ ЗНАЧЕНИЕ
     },
-    leftPriceScale: {
-      visible: false
-    }
+    leftPriceScale: { visible:false }
   }
 );
+
 const volume = volumeChart.addHistogramSeries({
   base: 0,
   priceFormat:{ type:'volume' }
 });
 
-// ===== SYNC TIME =====
+// ===== SYNC TIME SCALE =====
 priceChart.timeScale().subscribeVisibleTimeRangeChange(range=>{
   volumeChart.timeScale().setVisibleRange(range);
 });
@@ -100,6 +112,7 @@ volumeChart.timeScale().subscribeVisibleTimeRangeChange(range=>{
   priceChart.timeScale().setVisibleRange(range);
 });
 
+// ===== DATA =====
 async function loadData() {
   const r = await fetch(
     `https://api.binance.com/api/v3/klines?symbol=BTCUSDT&interval=${INTERVAL}&limit=500`
@@ -109,7 +122,14 @@ async function loadData() {
   const c=[], v=[];
   d.forEach(k=>{
     const t = k[0]/1000;
-    c.push({ time:t, open:+k[1], high:+k[2], low:+k[3], close:+k[4] });
+
+    c.push({
+      time:t,
+      open:+k[1],
+      high:+k[2],
+      low:+k[3],
+      close:+k[4]
+    });
 
     const net = 2*k[10]-k[7];
     v.push({
