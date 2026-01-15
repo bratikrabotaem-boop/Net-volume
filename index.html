@@ -4,14 +4,14 @@
 <meta charset="UTF-8">
 <title>BTCUSDT Candles + Net Volume</title>
 
-<!-- Chart.js -->
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1"></script>
+<!-- Chart.js UMD -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 
-<!-- ОБЯЗАТЕЛЬНЫЙ адаптер времени -->
-<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3"></script>
+<!-- Date adapter -->
+<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
 
-<!-- Candlestick -->
-<script src="https://cdn.jsdelivr.net/npm/chartjs-chart-financial@3"></script>
+<!-- Financial UMD (ВАЖНО: именно dist!) -->
+<script src="https://cdn.jsdelivr.net/npm/chartjs-chart-financial@3.3.0/dist/chartjs-chart-financial.min.js"></script>
 
 <style>
 body {
@@ -27,194 +27,115 @@ body {
   padding: 0 10px;
 }
 
-.title {
-  text-align: center;
-  font-size: 18px;
-  margin-bottom: 4px;
-}
-
-.sub {
-  text-align: center;
-  font-size: 12px;
-  color: #8a8a8a;
-  margin-bottom: 12px;
-}
-
-.tf-buttons {
-  display: flex;
-  justify-content: center;
-  gap: 8px;
-  margin-bottom: 12px;
-}
-
-.tf-buttons button {
-  background: #2a2d33;
-  border: none;
-  color: #ccc;
-  padding: 6px 12px;
-  border-radius: 4px;
-  cursor: pointer;
-}
-
-.tf-buttons button.active {
-  background: #3f434b;
-  color: #fff;
-}
-
-#priceChart {
-  height: 360px !important;
-}
-
-#volumeChart {
-  height: 180px !important;
-}
+#priceChart { height: 360px !important; }
+#volumeChart { height: 180px !important; }
 </style>
 </head>
 
 <body>
 <div class="wrapper">
-
-  <div class="title">BTC / USDT</div>
-  <div class="sub">BINANCE · CANDLESTICK + NET VOLUME</div>
-
-  <div class="tf-buttons">
-    <button onclick="setTF('1d')">1D</button>
-    <button onclick="setTF('4h')">4H</button>
-    <button onclick="setTF('30m')">30M</button>
-    <button onclick="setTF('15m')">15M</button>
-    <button onclick="setTF('5m')" class="active">5M</button>
-  </div>
-
   <canvas id="priceChart"></canvas>
   <canvas id="volumeChart"></canvas>
-
 </div>
 
 <script>
 const SYMBOL = 'BTCUSDT';
-const LIMIT = 180;
-let INTERVAL = '5m';
+const INTERVAL = '5m';
+const LIMIT = 150;
 
-let priceChart;
-let volumeChart;
+let priceChart, volumeChart;
 
 async function loadData() {
-  const url = `https://api.binance.com/api/v3/klines?symbol=${SYMBOL}&interval=${INTERVAL}&limit=${LIMIT}`;
-  const res = await fetch(url);
-  const klines = await res.json();
+  const res = await fetch(
+    `https://api.binance.com/api/v3/klines?symbol=${SYMBOL}&interval=${INTERVAL}&limit=${LIMIT}`
+  );
+  const k = await res.json();
 
   const candles = [];
-  const netVolume = [];
-  const volColors = [];
+  const volume = [];
+  const colors = [];
 
-  klines.forEach(k => {
-    const ts = k[0];
+  k.forEach(c => {
+    const ts = c[0];
 
     candles.push({
       x: ts,
-      o: +k[1],
-      h: +k[2],
-      l: +k[3],
-      c: +k[4]
+      o: +c[1],
+      h: +c[2],
+      l: +c[3],
+      c: +c[4]
     });
 
-    const quote = +k[7];
-    const buy = +k[10];
-    const net = 2 * buy - quote;
-
-    netVolume.push({ x: ts, y: net });
-    volColors.push(net >= 0 ? '#1fc77b' : '#e04b4b');
+    const net = 2 * (+c[10]) - (+c[7]);
+    volume.push({ x: ts, y: net });
+    colors.push(net >= 0 ? '#1fc77b' : '#e04b4b');
   });
 
   drawCandles(candles);
-  drawVolume(netVolume, volColors);
+  drawVolume(volume, colors);
 }
 
 function drawCandles(data) {
   if (priceChart) priceChart.destroy();
 
-  priceChart = new Chart(
-    document.getElementById('priceChart'),
-    {
-      type: 'candlestick',
-      data: {
-        datasets: [{
-          data,
-          upColor: '#1fc77b',
-          downColor: '#e04b4b',
-          borderColor: '#999',
-          wickColor: '#999'
-        }]
-      },
-      options: {
-        maintainAspectRatio: false,
-        plugins: {
-          legend: { display: false }
+  priceChart = new Chart(document.getElementById('priceChart'), {
+    type: 'candlestick',
+    data: {
+      datasets: [{
+        data: data,
+        upColor: '#1fc77b',
+        downColor: '#e04b4b',
+        borderColor: '#999',
+        wickColor: '#999'
+      }]
+    },
+    options: {
+      maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: {
+          type: 'time',
+          time: { unit: 'minute' },
+          ticks: { display: false },
+          grid: { display: false }
         },
-        scales: {
-          x: {
-            type: 'time',
-            time: { unit: 'minute' },
-            grid: { display: false },
-            ticks: { display: false }
-          },
-          y: {
-            position: 'right',
-            grid: { color: '#1e1e1e' },
-            ticks: { color: '#9a9a9a' }
-          }
+        y: {
+          position: 'right',
+          grid: { color: '#222' }
         }
       }
     }
-  );
+  });
 }
 
 function drawVolume(data, colors) {
   if (volumeChart) volumeChart.destroy();
 
-  volumeChart = new Chart(
-    document.getElementById('volumeChart'),
-    {
-      type: 'bar',
-      data: {
-        datasets: [{
-          data,
-          backgroundColor: colors,
-          barPercentage: 1,
-          categoryPercentage: 1
-        }]
-      },
-      options: {
-        maintainAspectRatio: false,
-        plugins: {
-          legend: { display: false }
+  volumeChart = new Chart(document.getElementById('volumeChart'), {
+    type: 'bar',
+    data: {
+      datasets: [{
+        data,
+        backgroundColor: colors,
+        barPercentage: 1,
+        categoryPercentage: 1
+      }]
+    },
+    options: {
+      maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: {
+          type: 'time',
+          time: { unit: 'minute' },
+          grid: { display: false }
         },
-        scales: {
-          x: {
-            type: 'time',
-            time: { unit: 'minute' },
-            grid: { display: false },
-            ticks: { color: '#888' }
-          },
-          y: {
-            grid: { color: '#1e1e1e' },
-            ticks: {
-              color: '#888',
-              callback: v => (v / 1e6).toFixed(0) + 'M'
-            }
-          }
+        y: {
+          grid: { color: '#222' }
         }
       }
     }
-  );
-}
-
-function setTF(tf) {
-  INTERVAL = tf;
-  document.querySelectorAll('.tf-buttons button')
-    .forEach(b => b.classList.remove('active'));
-  event.target.classList.add('active');
-  loadData();
+  });
 }
 
 loadData();
