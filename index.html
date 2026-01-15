@@ -4,128 +4,105 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-<title>BTCUSDT · Candles + Net Volume</title>
+<title>BTCUSDT · TradingView + Net Volume</title>
 
-<script src="https://cdn.jsdelivr.net/npm/lightweight-charts@4.1.1/dist/lightweight-charts.standalone.production.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1"></script>
 
 <style>
-html, body {
+body {
   margin: 0;
-  padding: 0;
-  background: #0f1115;
+  background: #121417;
   color: #e6e6e6;
   font-family: Arial, sans-serif;
 }
 
 .wrapper {
-  width: 100%;
-  max-width: 1200px;
+  max-width: 1100px;
   margin: 0 auto;
+  padding: 10px;
 }
 
-#price {
-  width: 100%;
-  height: 360px;
+/* -------- TradingView -------- */
+
+.tv-box {
+  height: 420px;
+  margin-bottom: 20px;
 }
 
-#volume {
+iframe {
   width: 100%;
-  height: 180px;
+  height: 100%;
+  border: none;
+}
+
+/* -------- Net Volume -------- */
+
+.title {
+  text-align: center;
+  font-size: 16px;
+  margin-bottom: 6px;
+}
+
+.tf-buttons {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.tf-buttons button {
+  background: #2a2d33;
+  border: none;
+  color: #ccc;
+  padding: 6px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.tf-buttons button.active {
+  background: #3f434b;
+  color: #fff;
+}
+
+#volumeChart {
+  height: 220px !important;
 }
 </style>
 </head>
 
 <body>
-
 <div class="wrapper">
-  <div id="price"></div>
-  <div id="volume"></div>
+
+  <!-- ===== TRADINGVIEW ===== -->
+  <div class="tv-box">
+    <iframe
+      src="https://www.tradingview.com/widgetembed/?symbol=BINANCE:BTCUSDT&interval=5&theme=dark&style=1&locale=ru&toolbarbg=121417&enable_publishing=false&hide_side_toolbar=false&allow_symbol_change=false"
+      loading="lazy">
+    </iframe>
+  </div>
+
+  <!-- ===== NET VOLUME ===== -->
+  <div class="title">BTC/USDT · NET VOLUME (BINANCE)</div>
+
+  <div class="tf-buttons">
+    <button onclick="setTF('1d')">1D</button>
+    <button onclick="setTF('4h')">4H</button>
+    <button onclick="setTF('30m')">30M</button>
+    <button onclick="setTF('15m')">15M</button>
+    <button onclick="setTF('5m')" class="active">5M</button>
+  </div>
+
+  <canvas id="volumeChart"></canvas>
+
 </div>
 
 <script>
 const SYMBOL = 'BTCUSDT';
-const INTERVAL = '5m';
-const LIMIT = 300;
+const LIMIT = 180;
+let INTERVAL = '5m';
+let chart;
 
-/* ---------- CONTAINERS ---------- */
-
-const priceContainer = document.getElementById('price');
-const volumeContainer = document.getElementById('volume');
-
-/* ---------- PRICE CHART ---------- */
-
-const priceChart = LightweightCharts.createChart(priceContainer, {
-  width: priceContainer.clientWidth,
-  height: priceContainer.clientHeight,
-  layout: {
-    background: { color: '#0f1115' },
-    textColor: '#aaa'
-  },
-  grid: {
-    vertLines: { color: '#1c1f26' },
-    horzLines: { color: '#1c1f26' }
-  },
-  rightPriceScale: {
-    borderColor: '#333'
-  },
-  timeScale: {
-    timeVisible: true,
-    secondsVisible: false
-  }
-});
-
-const candleSeries = priceChart.addCandlestickSeries({
-  upColor: '#1fc77b',
-  downColor: '#e04b4b',
-  wickUpColor: '#1fc77b',
-  wickDownColor: '#e04b4b',
-  borderVisible: false
-});
-
-/* ---------- VOLUME CHART ---------- */
-
-const volumeChart = LightweightCharts.createChart(volumeContainer, {
-  width: volumeContainer.clientWidth,
-  height: volumeContainer.clientHeight,
-  layout: {
-    background: { color: '#0f1115' },
-    textColor: '#aaa'
-  },
-  grid: {
-    vertLines: { color: '#1c1f26' },
-    horzLines: { color: '#1c1f26' }
-  },
-  rightPriceScale: {
-    borderColor: '#333'
-  },
-  timeScale: {
-    visible: false
-  }
-});
-
-const volumeSeries = volumeChart.addHistogramSeries({
-  priceScaleId: 'volume',
-  priceFormat: {
-    type: 'custom',
-    formatter: v => (v / 1e6).toFixed(1) + 'M'
-  }
-});
-
-volumeChart.priceScale('volume').applyOptions({
-  autoScale: true,
-  scaleMargins: {
-    top: 0.15,
-    bottom: 0.15
-  }
-});
-
-/* ---------- SYNC TIME ---------- */
-
-priceChart.timeScale().subscribeVisibleTimeRangeChange(range => {
-  volumeChart.timeScale().setVisibleRange(range);
-});
-
-/* ---------- LOAD DATA ---------- */
+/* -------- LOAD NET VOLUME -------- */
 
 async function loadData() {
   const res = await fetch(
@@ -133,45 +110,38 @@ async function loadData() {
   );
   const data = await res.json();
 
-  const candles = [];
-  const volumes = [];
+  const labels = [];
+  const values = [];
+  const colors = [];
 
   data.forEach(k => {
-    const time = k[0] / 1000;
-
-    const open  = +k[1];
-    const high  = +k[2];
-    const low   = +k[3];
-    const close = +k[4];
-
-    candles.push({ time, open, high, low, close });
+    labels.push('');
 
     const quote = +k[7];
     const buy   = +k[10];
     const net   = 2 * buy - quote;
 
-    volumes.push({
-      time,
-      value: net,
-      color: net >= 0 ? '#1fc77b' : '#e04b4b'
-    });
+    values.push(net);
+    colors.push(net >= 0 ? '#1fc77b' : '#e04b4b');
   });
 
-  candleSeries.setData(candles);
-  volumeSeries.setData(volumes);
-
-  priceChart.timeScale().fitContent();
+  drawChart(labels, values, colors);
 }
 
-/* ---------- RESIZE FIX ---------- */
+/* -------- DRAW -------- */
 
-window.addEventListener('resize', () => {
-  priceChart.resize(priceContainer.clientWidth, priceContainer.clientHeight);
-  volumeChart.resize(volumeContainer.clientWidth, volumeContainer.clientHeight);
-});
+function drawChart(labels, data, colors) {
+  if (chart) chart.destroy();
 
-loadData();
-</script>
-
-</body>
-</html>
+  chart = new Chart(document.getElementById('volumeChart'), {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{
+        data,
+        backgroundColor: colors,
+        barPercentage: 1,
+        categoryPercentage: 1
+      }]
+    },
+    options:
