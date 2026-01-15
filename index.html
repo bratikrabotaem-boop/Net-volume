@@ -1,19 +1,11 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-<meta charset="UTF-8">
+<meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>BTC-USDT · Candles + Net Volume</title>
 
-<!-- Chart.js 3 (СТАБИЛЬНО) -->
-<script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1"></script>
-
-<!-- Luxon (адаптер времени) -->
-<script src="https://cdn.jsdelivr.net/npm/luxon@3/build/global/luxon.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-luxon@1.3.1"></script>
-
-<!-- Financial charts -->
-<script src="https://cdn.jsdelivr.net/npm/chartjs-chart-financial@0.1.1"></script>
+<script src="https://unpkg.com/lightweight-charts/dist/lightweight-charts.standalone.production.js"></script>
 
 <style>
 body {
@@ -46,7 +38,7 @@ body {
   display: flex;
   justify-content: center;
   gap: 8px;
-  margin-bottom: 8px;
+  margin-bottom: 10px;
 }
 
 .tf-buttons button {
@@ -70,9 +62,9 @@ body {
   margin-bottom: 8px;
 }
 
-canvas {
-  width: 100% !important;
-  height: 540px !important;
+#chart {
+  width: 100%;
+  height: 520px;
 }
 </style>
 </head>
@@ -94,20 +86,57 @@ canvas {
 
   <div class="info" id="info"></div>
 
-  <canvas id="chart"></canvas>
+  <div id="chart"></div>
 </div>
 
 <script>
-let chart;
 let INTERVAL = '1h';
 
-let candles = [];
-let volumes = [];
-let times = [];
+const chart = LightweightCharts.createChart(document.getElementById('chart'), {
+  layout: {
+    background: { color: '#121417' },
+    textColor: '#cccccc'
+  },
+  grid: {
+    vertLines: { color: '#1e2228' },
+    horzLines: { color: '#1e2228' }
+  },
+  rightPriceScale: {
+    borderColor: '#1e2228'
+  },
+  timeScale: {
+    borderColor: '#1e2228',
+    timeVisible: true,
+    secondsVisible: false
+  },
+  crosshair: {
+    mode: LightweightCharts.CrosshairMode.Normal
+  }
+});
+
+const candleSeries = chart.addCandlestickSeries({
+  upColor: '#1fc77b',
+  downColor: '#e04b4b',
+  borderUpColor: '#1fc77b',
+  borderDownColor: '#e04b4b',
+  wickUpColor: '#1fc77b',
+  wickDownColor: '#e04b4b'
+});
+
+const volumeSeries = chart.addHistogramSeries({
+  priceScaleId: '',
+  priceFormat: { type: 'volume' },
+  scaleMargins: {
+    top: 0.75,
+    bottom: 0
+  }
+});
 
 const pad = n => String(n).padStart(2, '0');
-const fmt = d =>
-  `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+const fmt = t => {
+  const d = new Date(t * 1000);
+  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+};
 
 async function loadData() {
   const res = await fetch(
@@ -115,19 +144,18 @@ async function loadData() {
   );
   const data = await res.json();
 
-  candles = [];
-  volumes = [];
-  times = [];
+  const candles = [];
+  const volumes = [];
 
   data.forEach(k => {
-    const time = new Date(k[0]);
+    const time = Math.floor(k[0] / 1000);
 
     candles.push({
-      x: time,
-      o: +k[1],
-      h: +k[2],
-      l: +k[3],
-      c: +k[4]
+      time,
+      open: +k[1],
+      high: +k[2],
+      low: +k[3],
+      close: +k[4]
     });
 
     const buy = +k[10];
@@ -135,83 +163,20 @@ async function loadData() {
     const net = 2 * buy - quote;
 
     volumes.push({
-      x: time,
-      y: net
+      time,
+      value: Math.abs(net),
+      color: net >= 0 ? '#1fc77b' : '#e04b4b'
     });
-
-    times.push(time);
   });
 
-  draw();
-  updateInfo();
-}
+  candleSeries.setData(candles);
+  volumeSeries.setData(volumes);
 
-function draw() {
-  if (chart) chart.destroy();
-
-  chart = new Chart(document.getElementById('chart').getContext('2d'), {
-    type: 'candlestick',
-    data: {
-      datasets: [
-        {
-          label: 'BTCUSDT',
-          data: candles,
-          yAxisID: 'price',
-          color: {
-            up: '#1fc77b',
-            down: '#e04b4b',
-            unchanged: '#888'
-          }
-        },
-        {
-          type: 'bar',
-          label: 'Net Volume',
-          data: volumes,
-          yAxisID: 'volume',
-          backgroundColor: volumes.map(v =>
-            v.y >= 0 ? '#1fc77b' : '#e04b4b'
-          )
-        }
-      ]
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      animation: false,
-      plugins: {
-        legend: { display: false }
-      },
-      scales: {
-        x: {
-          type: 'time',
-          grid: { color: '#1e2228' },
-          ticks: { color: '#777' }
-        },
-        price: {
-          position: 'right',
-          grid: { color: '#1e2228' },
-          ticks: { color: '#ccc' },
-          weight: 3
-        },
-        volume: {
-          position: 'left',
-          grid: { display: false },
-          ticks: {
-            color: '#777',
-            callback: v => (v / 1e6).toFixed(0) + 'M'
-          },
-          weight: 1
-        }
-      }
-    }
-  });
-}
-
-function updateInfo() {
-  if (!volumes.length) return;
-  const i = volumes.length - 1;
+  const last = data[data.length - 1];
   document.getElementById('info').innerHTML =
-    `<b>${fmt(times[i])}</b> · Net: ${(volumes[i].y / 1e6).toFixed(2)}M USDT`;
+    `<b>${fmt(last[0] / 1000)}</b> · Net: ${( (2*last[10]-last[7]) / 1e6).toFixed(2)}M USDT`;
+
+  chart.timeScale().fitContent();
 }
 
 function setTF(tf) {
