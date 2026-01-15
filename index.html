@@ -22,7 +22,7 @@ body {
   padding: 10px;
 }
 
-/* -------- TradingView -------- */
+/* ---------- TradingView ---------- */
 
 .tv-box {
   height: 420px;
@@ -35,7 +35,7 @@ iframe {
   border: none;
 }
 
-/* -------- Net Volume -------- */
+/* ---------- Net Volume ---------- */
 
 .title {
   text-align: center;
@@ -64,8 +64,15 @@ iframe {
   color: #fff;
 }
 
-#volumeChart {
-  height: 220px !important;
+/* ВАЖНО: контейнер */
+.volume-box {
+  height: 240px;
+  width: 100%;
+}
+
+.volume-box canvas {
+  width: 100% !important;
+  height: 100% !important;
 }
 </style>
 </head>
@@ -92,7 +99,9 @@ iframe {
     <button onclick="setTF('5m')" class="active">5M</button>
   </div>
 
-  <canvas id="volumeChart"></canvas>
+  <div class="volume-box">
+    <canvas id="volumeChart"></canvas>
+  </div>
 
 </div>
 
@@ -101,8 +110,6 @@ const SYMBOL = 'BTCUSDT';
 const LIMIT = 180;
 let INTERVAL = '5m';
 let chart;
-
-/* -------- LOAD NET VOLUME -------- */
 
 async function loadData() {
   const res = await fetch(
@@ -128,8 +135,6 @@ async function loadData() {
   drawChart(labels, values, colors);
 }
 
-/* -------- DRAW -------- */
-
 function drawChart(labels, data, colors) {
   if (chart) chart.destroy();
 
@@ -144,4 +149,39 @@ function drawChart(labels, data, colors) {
         categoryPercentage: 1
       }]
     },
-    options:
+    options: {
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: ctx => (ctx.raw / 1e6).toFixed(2) + 'M USDT'
+          }
+        }
+      },
+      scales: {
+        x: { display: false },
+        y: {
+          grid: { color: '#222' },
+          ticks: {
+            color: '#888',
+            callback: v => (v / 1e6).toFixed(0) + 'M'
+          }
+        }
+      }
+    }
+  });
+}
+
+function setTF(tf) {
+  INTERVAL = tf;
+  document.querySelectorAll('.tf-buttons button')
+    .forEach(b => b.classList.remove('active'));
+  event.target.classList.add('active');
+  loadData();
+}
+
+loadData();
+</script>
+</body>
+</html>
