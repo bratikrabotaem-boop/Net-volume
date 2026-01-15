@@ -4,8 +4,14 @@
 <meta charset="UTF-8">
 <title>BTCUSDT Candles + Net Volume</title>
 
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/chartjs-chart-financial"></script>
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1"></script>
+
+<!-- ОБЯЗАТЕЛЬНЫЙ адаптер времени -->
+<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3"></script>
+
+<!-- Candlestick -->
+<script src="https://cdn.jsdelivr.net/npm/chartjs-chart-financial@3"></script>
 
 <style>
 body {
@@ -95,23 +101,17 @@ let volumeChart;
 async function loadData() {
   const url = `https://api.binance.com/api/v3/klines?symbol=${SYMBOL}&interval=${INTERVAL}&limit=${LIMIT}`;
   const res = await fetch(url);
-  const data = await res.json();
+  const klines = await res.json();
 
-  const labels = [];
   const candles = [];
   const netVolume = [];
-  const colors = [];
+  const volColors = [];
 
-  data.forEach(k => {
-    const time = new Date(k[0]).toLocaleTimeString([], {
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-
-    labels.push(time);
+  klines.forEach(k => {
+    const ts = k[0];
 
     candles.push({
-      x: time,
+      x: ts,
       o: +k[1],
       h: +k[2],
       l: +k[3],
@@ -122,15 +122,15 @@ async function loadData() {
     const buy = +k[10];
     const net = 2 * buy - quote;
 
-    netVolume.push(net);
-    colors.push(net >= 0 ? '#1fc77b' : '#e04b4b');
+    netVolume.push({ x: ts, y: net });
+    volColors.push(net >= 0 ? '#1fc77b' : '#e04b4b');
   });
 
-  drawCandles(labels, candles);
-  drawVolume(labels, netVolume, colors);
+  drawCandles(candles);
+  drawVolume(netVolume, volColors);
 }
 
-function drawCandles(labels, data) {
+function drawCandles(data) {
   if (priceChart) priceChart.destroy();
 
   priceChart = new Chart(
@@ -138,7 +138,6 @@ function drawCandles(labels, data) {
     {
       type: 'candlestick',
       data: {
-        labels,
         datasets: [{
           data,
           upColor: '#1fc77b',
@@ -154,6 +153,8 @@ function drawCandles(labels, data) {
         },
         scales: {
           x: {
+            type: 'time',
+            time: { unit: 'minute' },
             grid: { display: false },
             ticks: { display: false }
           },
@@ -168,7 +169,7 @@ function drawCandles(labels, data) {
   );
 }
 
-function drawVolume(labels, data, colors) {
+function drawVolume(data, colors) {
   if (volumeChart) volumeChart.destroy();
 
   volumeChart = new Chart(
@@ -176,7 +177,6 @@ function drawVolume(labels, data, colors) {
     {
       type: 'bar',
       data: {
-        labels,
         datasets: [{
           data,
           backgroundColor: colors,
@@ -191,11 +191,10 @@ function drawVolume(labels, data, colors) {
         },
         scales: {
           x: {
+            type: 'time',
+            time: { unit: 'minute' },
             grid: { display: false },
-            ticks: {
-              autoSkip: false,
-              color: '#888'
-            }
+            ticks: { color: '#888' }
           },
           y: {
             grid: { color: '#1e1e1e' },
