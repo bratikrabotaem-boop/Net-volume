@@ -1,16 +1,65 @@
 <!DOCTYPE html>
-<html>
+<html lang="ru">
 <head>
-<script src="https://unpkg.com/lightweight-charts/dist/lightweight-charts.standalone.production.js"></script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BTC-USDT · Candles + Net Volume</title>
+
+<script src="https://cdn.jsdelivr.net/npm/lightweight-charts@4.1.1/dist/lightweight-charts.standalone.production.js"></script>
+
+<style>
+body {
+  margin: 0;
+  background: #121417;
+  color: #ccc;
+  font-family: Arial, sans-serif;
+}
+#chart {
+  width: 100vw;
+  height: 520px;
+}
+</style>
 </head>
+
 <body>
-<div id="c" style="width:100vw;height:400px"></div>
+<div id="chart"></div>
+
 <script>
-const chart = LightweightCharts.createChart(document.getElementById('c'));
-const s = chart.addCandlestickSeries();
-s.setData([
-  { time: 1700000000, open: 1, high: 3, low: 0.5, close: 2 }
-]);
+const chart = LightweightCharts.createChart(
+  document.getElementById('chart'),
+  {
+    layout: { background: { color:'#121417' }, textColor:'#ccc' },
+    grid: { vertLines:{color:'#1e2228'}, horzLines:{color:'#1e2228'} },
+    timeScale: { timeVisible:true }
+  }
+);
+
+const candles = chart.addCandlestickSeries({
+  upColor:'#1fc77b', downColor:'#e04b4b',
+  borderUpColor:'#1fc77b', borderDownColor:'#e04b4b',
+  wickUpColor:'#1fc77b', wickDownColor:'#e04b4b'
+});
+
+const volume = chart.addHistogramSeries({
+  priceScaleId:'',
+  priceFormat:{ type:'volume' },
+  scaleMargins:{ top:0.75, bottom:0 }
+});
+
+fetch('https://api.binance.com/api/v3/klines?symbol=BTCUSDT&interval=1h&limit=100')
+.then(r=>r.json())
+.then(d=>{
+  const c=[], v=[];
+  d.forEach(k=>{
+    const t=k[0]/1000;
+    c.push({time:t,open:+k[1],high:+k[2],low:+k[3],close:+k[4]});
+    const net=2*k[10]-k[7];
+    v.push({time:t,value:Math.abs(net),color:net>=0?'#1fc77b':'#e04b4b'});
+  });
+  candles.setData(c);
+  volume.setData(v);
+  chart.timeScale().fitContent();
+});
 </script>
 </body>
 </html>
