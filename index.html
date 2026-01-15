@@ -1,8 +1,16 @@
 <!DOCTYPE html>
 <html>
+<head>
+<script src="https://unpkg.com/lightweight-charts/dist/lightweight-charts.standalone.production.js"></script>
+</head>
 <body>
+<div id="c" style="width:100vw;height:400px"></div>
 <script>
-alert('JS работает');
+const chart = LightweightCharts.createChart(document.getElementById('c'));
+const s = chart.addCandlestickSeries();
+s.setData([
+  { time: 1700000000, open: 1, high: 3, low: 0.5, close: 2 }
+]);
 </script>
 </body>
 </html>
