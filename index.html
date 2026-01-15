@@ -2,71 +2,106 @@
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
-<title>Candlestick Test</title>
+<title>BTCUSDT Candles + Net Volume</title>
 
-<!-- Chart.js UMD -->
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
-
-<!-- Date adapter -->
-<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
-
-<!-- Financial (candlestick) -->
-<script src="https://cdn.jsdelivr.net/npm/chartjs-chart-financial@3.3.0/dist/chartjs-chart-financial.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1"></script>
 
 <style>
 body {
-  background: #111;
   margin: 0;
+  background: #121417;
+  color: #e6e6e6;
+  font-family: Arial, sans-serif;
 }
-canvas {
-  width: 100%;
-  height: 500px;
+.wrapper {
+  max-width: 1100px;
+  margin: 20px auto;
 }
+#priceChart { height: 360px !important; }
+#volumeChart { height: 180px !important; }
 </style>
 </head>
 
 <body>
-
-<canvas id="chart"></canvas>
+<div class="wrapper">
+  <canvas id="priceChart"></canvas>
+  <canvas id="volumeChart"></canvas>
+</div>
 
 <script>
-(async () => {
+const SYMBOL = 'BTCUSDT';
+const LIMIT = 120;
+const INTERVAL = '5m';
+
+async function loadData() {
   const res = await fetch(
-    'https://api.binance.com/api/v3/klines?symbol=BTCUSDT&interval=5m&limit=100'
+    `https://api.binance.com/api/v3/klines?symbol=${SYMBOL}&interval=${INTERVAL}&limit=${LIMIT}`
   );
-  const data = await res.json();
+  const k = await res.json();
 
-  const candles = data.map(k => ({
-    x: k[0],
-    o: +k[1],
-    h: +k[2],
-    l: +k[3],
-    c: +k[4]
-  }));
+  const labels = [];
+  const bodyData = [];
+  const bodyColors = [];
+  const wickHigh = [];
+  const wickLow = [];
+  const netVolume = [];
+  const volColors = [];
 
-  new Chart(document.getElementById('chart'), {
-    type: 'candlestick',
+  k.forEach(c => {
+    labels.push('');
+
+    const o = +c[1], h = +c[2], l = +c[3], cl = +c[4];
+    const up = cl >= o;
+
+    bodyData.push([o, cl]);
+    bodyColors.push(up ? '#1fc77b' : '#e04b4b');
+
+    wickHigh.push(h);
+    wickLow.push(l);
+
+    const net = 2 * (+c[10]) - (+c[7]);
+    netVolume.push(net);
+    volColors.push(net >= 0 ? '#1fc77b' : '#e04b4b');
+  });
+
+  drawPrice(labels, bodyData, bodyColors, wickHigh, wickLow);
+  drawVolume(labels, netVolume, volColors);
+}
+
+function drawPrice(labels, bodies, colors, highs, lows) {
+  new Chart(document.getElementById('priceChart'), {
     data: {
-      datasets: [{
-        data: candles,
-        upColor: '#26a69a',
-        downColor: '#ef5350',
-        borderColor: '#aaa',
-        wickColor: '#aaa'
-      }]
+      labels,
+      datasets: [
+        {
+          type: 'bar',
+          data: bodies.map(v => v[1] - v[0]),
+          base: bodies.map(v => v[0]),
+          backgroundColor: colors,
+          barPercentage: 0.7,
+          categoryPercentage: 1
+        },
+        {
+          type: 'line',
+          data: highs,
+          borderColor: '#999',
+          pointRadius: 0,
+          borderWidth: 1
+        },
+        {
+          type: 'line',
+          data: lows,
+          borderColor: '#999',
+          pointRadius: 0,
+          borderWidth: 1
+        }
+      ]
     },
     options: {
-      responsive: true,
       maintainAspectRatio: false,
-      plugins: {
-        legend: { display: false }
-      },
+      plugins: { legend: { display: false } },
       scales: {
-        x: {
-          type: 'time',
-          time: { unit: 'minute' },
-          grid: { display: false }
-        },
+        x: { display: false },
         y: {
           position: 'right',
           grid: { color: '#222' }
@@ -74,8 +109,32 @@ canvas {
       }
     }
   });
-})();
-</script>
+}
 
+function drawVolume(labels, data, colors) {
+  new Chart(document.getElementById('volumeChart'), {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{
+        data,
+        backgroundColor: colors,
+        barPercentage: 1,
+        categoryPercentage: 1
+      }]
+    },
+    options: {
+      maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { display: false },
+        y: { grid: { color: '#222' } }
+      }
+    }
+  });
+}
+
+loadData();
+</script>
 </body>
 </html>
