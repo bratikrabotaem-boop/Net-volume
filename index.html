@@ -2,11 +2,8 @@
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-<title>BTCUSDT · TradingView + Net Volume</title>
-
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1"></script>
+<title>BTC-USDT Net Volume</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
 <style>
 body {
@@ -18,36 +15,38 @@ body {
 
 .wrapper {
   max-width: 1100px;
-  margin: 0 auto;
-  padding: 10px;
+  margin: 30px auto;
+  padding: 0 10px;
 }
 
-/* ---------- TradingView ---------- */
-
-.tv-box {
-  height: 420px;
-  margin-bottom: 20px;
-}
-
-iframe {
+.tv-wrapper {
   width: 100%;
-  height: 100%;
-  border: none;
+  height: 520px;
+  margin-bottom: 25px;
+  border-radius: 6px;
+  overflow: hidden;
+  background: #0f1114;
 }
-
-/* ---------- Net Volume ---------- */
 
 .title {
   text-align: center;
-  font-size: 16px;
+  font-size: 18px;
   margin-bottom: 6px;
+  color: #cfcfcf;
+}
+
+.sub {
+  text-align: center;
+  font-size: 13px;
+  color: #8a8a8a;
+  margin-bottom: 14px;
 }
 
 .tf-buttons {
   display: flex;
   justify-content: center;
   gap: 8px;
-  margin-bottom: 10px;
+  margin-bottom: 15px;
 }
 
 .tf-buttons button {
@@ -57,6 +56,7 @@ iframe {
   padding: 6px 12px;
   border-radius: 4px;
   cursor: pointer;
+  font-size: 13px;
 }
 
 .tf-buttons button.active {
@@ -64,15 +64,9 @@ iframe {
   color: #fff;
 }
 
-/* ВАЖНО: контейнер */
-.volume-box {
-  height: 240px;
-  width: 100%;
-}
-
-.volume-box canvas {
+canvas {
   width: 100% !important;
-  height: 100% !important;
+  height: 420px !important;
 }
 </style>
 </head>
@@ -80,16 +74,28 @@ iframe {
 <body>
 <div class="wrapper">
 
-  <!-- ===== TRADINGVIEW ===== -->
-  <div class="tv-box">
+  <!-- TradingView BTC/USDT -->
+  <div class="tv-wrapper">
     <iframe
-      src="https://www.tradingview.com/widgetembed/?symbol=BINANCE:BTCUSDT&interval=5&theme=dark&style=1&locale=ru&toolbarbg=121417&enable_publishing=false&hide_side_toolbar=false&allow_symbol_change=false"
-      loading="lazy">
+      src="https://s.tradingview.com/widgetembed/?frameElementId=tradingview_btc
+      &symbol=BINANCE:BTCUSDT
+      &interval=60
+      &hidesidetoolbar=1
+      &hidetoptoolbar=0
+      &theme=dark
+      &style=1
+      &timezone=Etc%2FUTC
+      &withdateranges=1
+      &saveimage=0
+      &hidevolume=0"
+      style="width:100%; height:100%; border:0;"
+      allowfullscreen>
     </iframe>
   </div>
 
-  <!-- ===== NET VOLUME ===== -->
-  <div class="title">BTC/USDT · NET VOLUME (BINANCE)</div>
+  <!-- Net Volume -->
+  <div class="title">BTC-USDT · NET VOLUME</div>
+  <div class="sub">BINANCE</div>
 
   <div class="tf-buttons">
     <button onclick="setTF('1d')">1D</button>
@@ -99,54 +105,59 @@ iframe {
     <button onclick="setTF('5m')" class="active">5M</button>
   </div>
 
-  <div class="volume-box">
-    <canvas id="volumeChart"></canvas>
-  </div>
-
+  <canvas id="chart"></canvas>
 </div>
 
 <script>
+let chart;
+let INTERVAL = '5m';
 const SYMBOL = 'BTCUSDT';
 const LIMIT = 180;
-let INTERVAL = '5m';
-let chart;
 
 async function loadData() {
-  const res = await fetch(
-    `https://api.binance.com/api/v3/klines?symbol=${SYMBOL}&interval=${INTERVAL}&limit=${LIMIT}`
-  );
+  const url = `https://api.binance.com/api/v3/klines?symbol=${SYMBOL}&interval=${INTERVAL}&limit=${LIMIT}`;
+  const res = await fetch(url);
   const data = await res.json();
 
   const labels = [];
   const values = [];
   const colors = [];
 
+  let lastMonth = '';
+
   data.forEach(k => {
-    labels.push('');
+    const d = new Date(k[0]);
+    const monthLabel = d.toLocaleDateString('en-US', {
+      month: 'short',
+      year: 'numeric'
+    });
+
+    const label = monthLabel !== lastMonth ? monthLabel : '';
+    lastMonth = monthLabel;
 
     const quote = +k[7];
-    const buy   = +k[10];
-    const net   = 2 * buy - quote;
+    const buy = +k[10];
+    const net = 2 * buy - quote;
 
+    labels.push(label);
     values.push(net);
     colors.push(net >= 0 ? '#1fc77b' : '#e04b4b');
   });
 
-  drawChart(labels, values, colors);
+  draw(labels, values, colors);
 }
 
-function drawChart(labels, data, colors) {
+function draw(labels, data, colors) {
   if (chart) chart.destroy();
 
-  chart = new Chart(document.getElementById('volumeChart'), {
+  chart = new Chart(document.getElementById('chart'), {
     type: 'bar',
     data: {
       labels,
       datasets: [{
         data,
         backgroundColor: colors,
-        barPercentage: 1,
-        categoryPercentage: 1
+        borderWidth: 0
       }]
     },
     options: {
@@ -155,12 +166,20 @@ function drawChart(labels, data, colors) {
         legend: { display: false },
         tooltip: {
           callbacks: {
-            label: ctx => (ctx.raw / 1e6).toFixed(2) + 'M USDT'
+            label: ctx => `Net: ${(ctx.raw / 1e6).toFixed(1)}M USDT`
           }
         }
       },
       scales: {
-        x: { display: false },
+        x: {
+          grid: { display: false },
+          ticks: {
+            color: '#9a9a9a',
+            autoSkip: false,
+            maxRotation: 0,
+            font: { size: 12, weight: 'bold' }
+          }
+        },
         y: {
           grid: { color: '#222' },
           ticks: {
