@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>BTC-USDT · Candles + Net Volume</title>
+<title>BTC-USDT · Net Volume</title>
 
 <script src="https://cdn.jsdelivr.net/npm/lightweight-charts@4.1.1/dist/lightweight-charts.standalone.production.js"></script>
 
@@ -64,7 +64,7 @@ body {
 
 #chart {
   width: 100%;
-  height: 520px;
+  height: 560px;
 }
 </style>
 </head>
@@ -91,8 +91,6 @@ body {
 
 <script>
 let INTERVAL = '1h';
-let lastNet = 0;
-let lastTime = 0;
 
 const chart = LightweightCharts.createChart(
   document.getElementById('chart'),
@@ -105,18 +103,17 @@ const chart = LightweightCharts.createChart(
       vertLines: { color: '#1e2228' },
       horzLines: { color: '#1e2228' }
     },
-    rightPriceScale: {
-      borderColor: '#1e2228'
-    },
     timeScale: {
-      borderColor: '#1e2228',
-      timeVisible: true
+      timeVisible: true,
+      borderColor: '#1e2228'
     }
   }
 );
 
-// Свечи
-const candleSeries = chart.addCandlestickSeries({
+// ===== PANE 1 — PRICE =====
+const pricePane = chart.addPane({ height: 380 });
+
+const candleSeries = pricePane.addCandlestickSeries({
   upColor: '#1fc77b',
   downColor: '#e04b4b',
   borderUpColor: '#1fc77b',
@@ -125,14 +122,12 @@ const candleSeries = chart.addCandlestickSeries({
   wickDownColor: '#e04b4b'
 });
 
-// Net Volume (как у тебя)
-const volumeSeries = chart.addHistogramSeries({
-  priceScaleId: '',
-  priceFormat: { type: 'volume' },
-  scaleMargins: {
-    top: 0.72,
-    bottom: 0
-  }
+// ===== PANE 2 — NET VOLUME =====
+const volumePane = chart.addPane({ height: 160 });
+
+const volumeSeries = volumePane.addHistogramSeries({
+  base: 0,
+  priceFormat: { type: 'volume' }
 });
 
 const pad = n => String(n).padStart(2, '0');
@@ -150,6 +145,9 @@ async function loadData() {
   const candles = [];
   const volumes = [];
 
+  let lastNet = 0;
+  let lastTime = 0;
+
   data.forEach(k => {
     const time = k[0] / 1000;
 
@@ -161,12 +159,11 @@ async function loadData() {
       close: +k[4]
     });
 
-    // ТОЧНО ТВОЯ ФОРМУЛА
     const net = 2 * k[10] - k[7];
 
     volumes.push({
       time,
-      value: Math.abs(net),
+      value: net / 1e6,
       color: net >= 0 ? '#1fc77b' : '#e04b4b'
     });
 
