@@ -6,7 +6,6 @@
 
 <title>BTCUSDT · Candles + Net Volume</title>
 
-<!-- Lightweight Charts (STABLE CDN) -->
 <script src="https://cdn.jsdelivr.net/npm/lightweight-charts@4.1.1/dist/lightweight-charts.standalone.production.js"></script>
 
 <style>
@@ -48,10 +47,12 @@ const SYMBOL = 'BTCUSDT';
 const INTERVAL = '5m';
 const LIMIT = 300;
 
-/* ---------- PRICE CHART ---------- */
+/* ---------- CONTAINERS ---------- */
 
 const priceContainer = document.getElementById('price');
 const volumeContainer = document.getElementById('volume');
+
+/* ---------- PRICE CHART ---------- */
 
 const priceChart = LightweightCharts.createChart(priceContainer, {
   width: priceContainer.clientWidth,
@@ -103,11 +104,22 @@ const volumeChart = LightweightCharts.createChart(volumeContainer, {
 });
 
 const volumeSeries = volumeChart.addHistogramSeries({
-  priceFormat: { type: 'volume' },
-  priceScaleId: ''
+  priceScaleId: 'volume',
+  priceFormat: {
+    type: 'custom',
+    formatter: v => (v / 1e6).toFixed(1) + 'M'
+  }
 });
 
-/* ---------- SYNC ---------- */
+volumeChart.priceScale('volume').applyOptions({
+  autoScale: true,
+  scaleMargins: {
+    top: 0.15,
+    bottom: 0.15
+  }
+});
+
+/* ---------- SYNC TIME ---------- */
 
 priceChart.timeScale().subscribeVisibleTimeRangeChange(range => {
   volumeChart.timeScale().setVisibleRange(range);
@@ -127,20 +139,20 @@ async function loadData() {
   data.forEach(k => {
     const time = k[0] / 1000;
 
-    const open = +k[1];
-    const high = +k[2];
-    const low  = +k[3];
-    const close= +k[4];
+    const open  = +k[1];
+    const high  = +k[2];
+    const low   = +k[3];
+    const close = +k[4];
 
     candles.push({ time, open, high, low, close });
 
     const quote = +k[7];
-    const buy = +k[10];
-    const net = 2 * buy - quote;
+    const buy   = +k[10];
+    const net   = 2 * buy - quote;
 
     volumes.push({
       time,
-      value: Math.abs(net),
+      value: net,
       color: net >= 0 ? '#1fc77b' : '#e04b4b'
     });
   });
@@ -151,7 +163,7 @@ async function loadData() {
   priceChart.timeScale().fitContent();
 }
 
-/* ---------- RESIZE FIX (ВАЖНО ДЛЯ iOS) ---------- */
+/* ---------- RESIZE FIX ---------- */
 
 window.addEventListener('resize', () => {
   priceChart.resize(priceContainer.clientWidth, priceContainer.clientHeight);
