@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <title>BTC-USDT Net Volume</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body {
+      background: #0f1116;
+      color: #e0e0e0;
+      font-family: Arial, sans-serif;
+    }
+    canvas {
+      max-width: 1000px;
+      margin: 40px auto;
+      display: block;
+    }
+  </style>
+</head>
+<body>
+
+<canvas id="netVolumeChart"></canvas>
+
+<script>
+const SYMBOL = 'BTCUSDT';
+const INTERVAL = '1h';
+const LIMIT = 100;
+
+async function loadData() {
+  const url = `https://api.binance.com/api/v3/klines?symbol=${SYMBOL}&interval=${INTERVAL}&limit=${LIMIT}`;
+  const res = await fetch(url);
+  const data = await res.json();
+
+  const labels = [];
+  const values = [];
+  const colors = [];
+
+  data.forEach(k => {
+    const time = new Date(k[0]).toLocaleString();
+    const quoteVolume = parseFloat(k[7]);
+    const takerBuyQuote = parseFloat(k[10]);
+
+    const net = 2 * takerBuyQuote - quoteVolume;
+
+    labels.push(time);
+    values.push(net);
+    colors.push(net >= 0 ? '#00c176' : '#ff4d4d');
+  });
+
+  drawChart(labels, values, colors);
+}
+
+function drawChart(labels, values, colors) {
+  const ctx = document.getElementById('netVolumeChart').getContext('2d');
+
+  new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: labels,
+      datasets: [{
+        data: values,
+        backgroundColor: colors
+      }]
+    },
+    options: {
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { ticks: { color: '#aaa' } },
+        y: {
+          ticks: {
+            color: '#aaa',
+            callback: v => (v / 1e6).toFixed(0) + 'M'
+          }
+        }
+      }
+    }
+  });
+}
+
+loadData();
+</script>
+
+</body>
+</html>
