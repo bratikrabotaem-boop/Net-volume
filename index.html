@@ -122,32 +122,25 @@ async function loadData() {
   const labels = [];
   const values = [];
   const colors = [];
-
-  let lastMonth = '';
+  const times = [];
 
   data.forEach(k => {
     const d = new Date(k[0]);
-    const monthLabel = d.toLocaleDateString('en-US', {
-      month: 'short',
-      year: 'numeric'
-    });
-
-    const label = monthLabel !== lastMonth ? monthLabel : '';
-    lastMonth = monthLabel;
 
     const quote = +k[7];
     const buy = +k[10];
     const net = 2 * buy - quote;
 
-    labels.push(label);
+    labels.push('');
     values.push(net);
     colors.push(net >= 0 ? '#1fc77b' : '#e04b4b');
+    times.push(d);
   });
 
-  draw(labels, values, colors);
+  draw(labels, values, colors, times);
 }
 
-function draw(labels, data, colors) {
+function draw(labels, data, colors, times) {
   if (chart) chart.destroy();
 
   chart = new Chart(document.getElementById('chart'), {
@@ -166,19 +159,25 @@ function draw(labels, data, colors) {
         legend: { display: false },
         tooltip: {
           callbacks: {
-            label: ctx => `Net: ${(ctx.raw / 1e6).toFixed(1)}M USDT`
+            title: ctx => {
+              const d = times[ctx[0].dataIndex];
+              return d.toLocaleString('ru-RU', {
+                day: '2-digit',
+                month: '2-digit',
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+              });
+            },
+            label: ctx =>
+              `Net: ${(ctx.raw / 1e6).toFixed(1)}M USDT`
           }
         }
       },
       scales: {
         x: {
           grid: { display: false },
-          ticks: {
-            color: '#9a9a9a',
-            autoSkip: false,
-            maxRotation: 0,
-            font: { size: 12, weight: 'bold' }
-          }
+          ticks: { display: false }
         },
         y: {
           grid: { color: '#222' },
