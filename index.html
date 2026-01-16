@@ -24,27 +24,14 @@ body {
   padding: 0 10px;
 }
 
-.title {
-  text-align:center;
-  font-size:18px;
-  margin-bottom:4px;
-}
-
-.sub {
-  text-align:center;
-  font-size:13px;
-  color:#8a8a8a;
-  margin-bottom:8px;
-}
+.title { text-align:center; font-size:18px; margin-bottom:4px; }
+.sub { text-align:center; font-size:13px; color:#8a8a8a; margin-bottom:8px; }
 
 .tf-buttons {
   display:flex;
   justify-content:center;
   gap:8px;
   margin-bottom:8px;
-
-  /* ВАЖНО */
-  touch-action: manipulation;
 }
 
 .tf-buttons button {
@@ -55,8 +42,6 @@ body {
   border-radius:4px;
   font-size:12px;
   cursor:pointer;
-
-  touch-action: manipulation;
 }
 
 .tf-buttons button.active {
@@ -64,9 +49,9 @@ body {
   color:#fff;
 }
 
-/* Графики — без браузерных жестов */
+/* 🔑 КРИТИЧНО: ТОЛЬКО ГРАФИКИ */
 #price, #volume {
-  touch-action: none !important;
+  touch-action: none;
 }
 
 #price { height: 420px; }
@@ -75,7 +60,6 @@ body {
 </head>
 
 <body>
-
 <div class="wrapper">
   <div class="title">BTC-USDT · NET VOLUME</div>
   <div class="sub">BINANCE</div>
@@ -94,19 +78,13 @@ body {
 </div>
 
 <script>
-/* Блок iOS gesture API */
+/* Блокируем iOS zoom-жесты */
 ['gesturestart','gesturechange','gestureend'].forEach(ev => {
   document.addEventListener(ev, e => e.preventDefault(), { passive:false });
 });
 
-/* 🔑 КЛЮЧЕВОЕ: гасим page-gesture на кнопках */
-document.querySelectorAll('.tf-buttons button').forEach(btn => {
-  btn.addEventListener('touchstart', e => e.preventDefault(), { passive:false });
-});
-
 let INTERVAL = '1h';
 
-/* Общие настройки */
 const commonOpts = {
   layout: { background:{color:'#121417'}, textColor:'#ccc' },
   grid: { vertLines:{color:'#1e2228'}, horzLines:{color:'#1e2228'} },
@@ -129,11 +107,7 @@ const commonOpts = {
 /* PRICE */
 const priceChart = LightweightCharts.createChart(
   document.getElementById('price'),
-  {
-    ...commonOpts,
-    rightPriceScale: { visible:false },
-    leftPriceScale: { visible:false }
-  }
+  { ...commonOpts, rightPriceScale:{visible:false}, leftPriceScale:{visible:false} }
 );
 
 const candles = priceChart.addCandlestickSeries({
@@ -148,11 +122,7 @@ const candles = priceChart.addCandlestickSeries({
 /* VOLUME */
 const volumeChart = LightweightCharts.createChart(
   document.getElementById('volume'),
-  {
-    ...commonOpts,
-    rightPriceScale: { visible:false },
-    leftPriceScale: { visible:false }
-  }
+  { ...commonOpts, rightPriceScale:{visible:false}, leftPriceScale:{visible:false} }
 );
 
 const volume = volumeChart.addHistogramSeries({
