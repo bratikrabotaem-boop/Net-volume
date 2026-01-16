@@ -60,10 +60,26 @@ let INTERVAL = '1h';
 const SCALE_WIDTH = 55;
 const SCALE_MARGINS = { top: 0.12, bottom: 0.12 };
 
+// ===== ОБЩИЕ НАСТРОЙКИ =====
 const commonOpts = {
   layout: { background:{color:'#121417'}, textColor:'#ccc' },
   grid: { vertLines:{color:'#1e2228'}, horzLines:{color:'#1e2228'} },
   timeScale: { timeVisible:true }
+};
+
+// ===== ТОЛЬКО PAN, БЕЗ ZOOM =====
+const interactionOptions = {
+  handleScroll: {
+    mouseWheel: false,
+    pressedMouseMove: true,
+    horzTouchDrag: true,
+    vertTouchDrag: false
+  },
+  handleScale: {
+    mouseWheel: false,
+    pinch: false,
+    axisPressedMouseMove: false
+  }
 };
 
 // ===== PRICE CHART =====
@@ -71,6 +87,7 @@ const priceChart = LightweightCharts.createChart(
   document.getElementById('price'),
   {
     ...commonOpts,
+    ...interactionOptions,
     rightPriceScale: {
       visible:true,
       borderColor:'#1e2228',
@@ -99,6 +116,7 @@ const volumeChart = LightweightCharts.createChart(
   document.getElementById('volume'),
   {
     ...commonOpts,
+    ...interactionOptions,
     rightPriceScale: {
       visible:true,
       borderColor:'#1e2228',
@@ -130,7 +148,7 @@ async function loadData() {
   const d = await r.json();
 
   const c=[], v=[];
-  const tzOffset = -new Date().getTimezoneOffset() * 60; // локальное время (Москва)
+  const tzOffset = -new Date().getTimezoneOffset() * 60;
 
   d.forEach(k=>{
     const t = k[0]/1000 + tzOffset;
