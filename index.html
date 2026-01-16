@@ -73,22 +73,26 @@ const priceChart = LightweightCharts.createChart(
     rightPriceScale: {
       visible:true,
       borderColor:'#1e2228',
-      minimumWidth: SCALE_WIDTH,
-
-      // ⬇️ ВОТ ЭТО УБИРАЕТ .00
-      priceFormat: {
-        type: 'custom',
-        formatter: v => Math.round(v).toString()
-      }
+      minimumWidth: SCALE_WIDTH
     },
     leftPriceScale: { visible:false }
   }
 );
 
+// 🔴 ВАЖНО: priceFormat ЗАДАЁТСЯ ЗДЕСЬ
 const candles = priceChart.addCandlestickSeries({
-  upColor:'#1fc77b', downColor:'#e04b4b',
-  borderUpColor:'#1fc77b', borderDownColor:'#e04b4b',
-  wickUpColor:'#1fc77b', wickDownColor:'#e04b4b'
+  upColor:'#1fc77b',
+  downColor:'#e04b4b',
+  borderUpColor:'#1fc77b',
+  borderDownColor:'#e04b4b',
+  wickUpColor:'#1fc77b',
+  wickDownColor:'#e04b4b',
+
+  // ⬇️ УБИРАЕТ .00
+  priceFormat: {
+    type: 'custom',
+    formatter: v => Math.round(v).toString()
+  }
 });
 
 // ===== VOLUME CHART =====
