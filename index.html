@@ -82,7 +82,10 @@ const priceChart = LightweightCharts.createChart(
   document.getElementById('price'),
   {
     ...commonOpts,
-    rightPriceScale: { visible:false },
+    rightPriceScale: {
+      visible: false,
+      autoScale: false
+    },
     leftPriceScale: { visible:false }
   }
 );
@@ -93,11 +96,7 @@ const candles = priceChart.addCandlestickSeries({
   borderUpColor:'#1fc77b',
   borderDownColor:'#e04b4b',
   wickUpColor:'#1fc77b',
-  wickDownColor:'#e04b4b',
-  priceFormat: {
-    type: 'custom',
-    formatter: v => Math.round(v).toString()
-  }
+  wickDownColor:'#e04b4b'
 });
 
 // ===== VOLUME CHART =====
@@ -105,14 +104,16 @@ const volumeChart = LightweightCharts.createChart(
   document.getElementById('volume'),
   {
     ...commonOpts,
-    rightPriceScale: { visible:false },
-    leftPriceScale: { visible:false }
+    rightPriceScale: {
+      visible:false,
+      autoScale:false
+    },
+    leftPriceScale:{ visible:false }
   }
 );
 
 const volume = volumeChart.addHistogramSeries({
-  base: 0,
-  priceFormat:{ type:'volume' }
+  base: 0
 });
 
 // ===== SYNC TIME =====
