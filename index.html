@@ -34,6 +34,13 @@ body {
 
 #price { height: 420px; }
 #volume { height: 140px; }
+
+/* 🔒 ОТКЛЮЧАЕМ БРАУЗЕРНЫЙ ZOOM, НО ОСТАВЛЯЕМ PAN */
+#price,
+#volume,
+.tv-lightweight-charts {
+  touch-action: pan-x !important;
+}
 </style>
 </head>
 
@@ -60,14 +67,13 @@ let INTERVAL = '1h';
 const SCALE_WIDTH = 55;
 const SCALE_MARGINS = { top: 0.12, bottom: 0.12 };
 
-// ===== ОБЩИЕ НАСТРОЙКИ =====
 const commonOpts = {
   layout: { background:{color:'#121417'}, textColor:'#ccc' },
   grid: { vertLines:{color:'#1e2228'}, horzLines:{color:'#1e2228'} },
   timeScale: { timeVisible:true }
 };
 
-// ===== ТОЛЬКО PAN, БЕЗ ZOOM =====
+// 🔧 PAN по графику + ZOOM ТОЛЬКО ПО ШКАЛЕ
 const interactionOptions = {
   handleScroll: {
     mouseWheel: false,
@@ -78,11 +84,11 @@ const interactionOptions = {
   handleScale: {
     mouseWheel: false,
     pinch: false,
-    axisPressedMouseMove: false
+    axisPressedMouseMove: true   // ← ВАЖНО: зум по шкале цены ВКЛЮЧЕН
   }
 };
 
-// ===== PRICE CHART =====
+// ===== PRICE =====
 const priceChart = LightweightCharts.createChart(
   document.getElementById('price'),
   {
@@ -111,7 +117,7 @@ const candles = priceChart.addCandlestickSeries({
   }
 });
 
-// ===== VOLUME CHART =====
+// ===== VOLUME =====
 const volumeChart = LightweightCharts.createChart(
   document.getElementById('volume'),
   {
