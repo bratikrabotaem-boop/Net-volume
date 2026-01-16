@@ -24,6 +24,9 @@ body {
   padding:0 10px;
 }
 
+.title { text-align:center; font-size:18px; }
+.sub { text-align:center; font-size:13px; color:#8a8a8a; margin-bottom:8px; }
+
 .tf-buttons {
   display:flex;
   justify-content:center;
@@ -54,6 +57,8 @@ body {
 
 <body>
 <div class="wrapper">
+  <div class="title">BTC-USDT · NET VOLUME</div>
+  <div class="sub">BINANCE</div>
 
   <div class="tf-buttons">
     <button onclick="setTF('1d')">1D</button>
@@ -69,13 +74,14 @@ body {
 </div>
 
 <script>
-/* iOS gesture kill */
+/* ===== iOS GESTURE BLOCK ===== */
 ['gesturestart','gesturechange','gestureend'].forEach(e=>{
   document.addEventListener(e,ev=>ev.preventDefault(),{passive:false});
 });
 
 let INTERVAL = '1h';
 
+/* ===== COMMON OPTIONS ===== */
 const commonOpts = {
   layout:{ background:{color:'#121417'}, textColor:'#ccc' },
   grid:{ vertLines:{color:'#1e2228'}, horzLines:{color:'#1e2228'} },
@@ -100,7 +106,7 @@ const commonOpts = {
   }
 };
 
-/* PRICE */
+/* ===== PRICE ===== */
 const priceChart = LightweightCharts.createChart(
   document.getElementById('price'),
   {
@@ -119,7 +125,7 @@ const candles = priceChart.addCandlestickSeries({
   wickDownColor:'#e04b4b'
 });
 
-/* VOLUME */
+/* ===== VOLUME ===== */
 const volumeChart = LightweightCharts.createChart(
   document.getElementById('volume'),
   {
@@ -134,12 +140,17 @@ const volume = volumeChart.addHistogramSeries({
   priceFormat:{type:'volume'}
 });
 
-/* === ONE-WAY SYNC (NO SCALE) === */
-priceChart.timeScale().subscribeVisibleTimeRangeChange(r=>{
-  volumeChart.timeScale().setVisibleRange(r);
+/* ===== PERFECT SYNC (PAN ONLY) ===== */
+let syncing = false;
+
+priceChart.timeScale().subscribeVisibleLogicalRangeChange(range=>{
+  if (syncing || range === null) return;
+  syncing = true;
+  volumeChart.timeScale().setVisibleLogicalRange(range);
+  syncing = false;
 });
 
-/* DATA */
+/* ===== DATA ===== */
 async function loadData(){
   const r = await fetch(
     `https://api.binance.com/api/v3/klines?symbol=BTCUSDT&interval=${INTERVAL}&limit=500`
@@ -174,10 +185,11 @@ async function loadData(){
   priceChart.timeScale().fitContent();
 }
 
-/* TF */
+/* ===== TF SWITCH ===== */
 function setTF(tf){
   INTERVAL=tf;
-  document.querySelectorAll('button').forEach(b=>b.classList.remove('active'));
+  document.querySelectorAll('.tf-buttons button')
+    .forEach(b=>b.classList.remove('active'));
   event.target.classList.add('active');
   loadData();
 }
