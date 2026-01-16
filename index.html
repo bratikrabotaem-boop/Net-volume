@@ -48,6 +48,7 @@ body {
 
 #price,#volume {
   touch-action:none !important;
+  width:100%;
 }
 
 #price { height:420px; }
@@ -74,7 +75,7 @@ body {
 </div>
 
 <script>
-/* ===== iOS BROWSER ZOOM BLOCK ===== */
+/* ===== iOS ZOOM BLOCK ===== */
 ['gesturestart','gesturechange','gestureend'].forEach(e=>{
   document.addEventListener(e,ev=>ev.preventDefault(),{passive:false});
 });
@@ -100,7 +101,7 @@ const commonOpts = {
   }
 };
 
-/* ===== PRICE CHART (PINCH ENABLED) ===== */
+/* ===== PRICE CHART ===== */
 const priceChart = LightweightCharts.createChart(
   document.getElementById('price'),
   {
@@ -124,7 +125,7 @@ const candles = priceChart.addCandlestickSeries({
   wickDownColor:'#e04b4b'
 });
 
-/* ===== VOLUME CHART (NO SCALE) ===== */
+/* ===== VOLUME CHART ===== */
 const volumeChart = LightweightCharts.createChart(
   document.getElementById('volume'),
   {
@@ -144,20 +145,33 @@ const volume = volumeChart.addHistogramSeries({
   priceFormat:{type:'volume'}
 });
 
-/* ===== BIDIRECTIONAL PAN + PINCH SYNC ===== */
+/* ===== SYNC ===== */
 let syncing = false;
 
-function syncCharts(a, b) {
+function syncCharts(a,b){
   a.timeScale().subscribeVisibleLogicalRangeChange(range=>{
-    if (syncing || range === null) return;
+    if(syncing || !range) return;
     syncing = true;
     b.timeScale().setVisibleLogicalRange(range);
     syncing = false;
   });
 }
-
 syncCharts(priceChart, volumeChart);
 syncCharts(volumeChart, priceChart);
+
+/* ===== RESIZE (FIX ROTATION) ===== */
+function resizeCharts(){
+  const p = document.getElementById('price');
+  const v = document.getElementById('volume');
+
+  priceChart.resize(p.clientWidth, p.clientHeight);
+  volumeChart.resize(v.clientWidth, v.clientHeight);
+}
+
+window.addEventListener('resize', resizeCharts);
+window.addEventListener('orientationchange', ()=>{
+  setTimeout(resizeCharts,300); // iOS Safari fix
+});
 
 /* ===== DATA ===== */
 async function loadData(){
@@ -192,6 +206,7 @@ async function loadData(){
   volume.setData(v);
 
   priceChart.timeScale().fitContent();
+  resizeCharts();
 }
 
 /* ===== TIMEFRAME ===== */
