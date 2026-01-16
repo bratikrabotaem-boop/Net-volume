@@ -76,7 +76,7 @@ body {
   document.addEventListener(e,ev=>ev.preventDefault(),{passive:false});
 });
 
-/* ===== TIME FORMAT (БЕЗ СЕКУНД) ===== */
+/* ===== TIME FORMAT (БЕЗ СЕКУНД, БЕЗ СМЕЩЕНИЙ) ===== */
 function formatTimeNoSeconds(time) {
   const d = new Date(time * 1000);
 
@@ -95,7 +95,6 @@ function formatTimeNoSeconds(time) {
 let INTERVAL = '1h';
 let ws = null;
 let sessionId = 0;
-const tz = -new Date().getTimezoneOffset() * 60;
 
 /* ===== realtime volume state ===== */
 let currentBarTime = null;
@@ -207,7 +206,7 @@ async function loadData(){
 
   const c=[], v=[];
   d.forEach(k=>{
-    const t = k[0]/1000 + tz;
+    const t = k[0] / 1000; // <<< UTC БЕЗ tz
 
     c.push({
       time:t,
@@ -247,7 +246,7 @@ function startRealtime(currentSession){
     if (currentSession !== sessionId) return;
 
     const k = JSON.parse(e.data).k;
-    const time = Math.floor(k.t/1000) + tz;
+    const time = Math.floor(k.t / 1000); // <<< UTC БЕЗ tz
 
     candles.update({
       time,
