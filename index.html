@@ -46,7 +46,6 @@ body {
   color:#fff;
 }
 
-/* Браузерные жесты запрещены */
 #price,#volume {
   touch-action:none !important;
 }
@@ -75,7 +74,7 @@ body {
 </div>
 
 <script>
-/* iOS browser zoom kill */
+/* ===== iOS BROWSER ZOOM BLOCK ===== */
 ['gesturestart','gesturechange','gestureend'].forEach(e=>{
   document.addEventListener(e,ev=>ev.preventDefault(),{passive:false});
 });
@@ -101,7 +100,7 @@ const commonOpts = {
   }
 };
 
-/* ===== PRICE (PINCH ENABLED) ===== */
+/* ===== PRICE CHART (PINCH ENABLED) ===== */
 const priceChart = LightweightCharts.createChart(
   document.getElementById('price'),
   {
@@ -109,7 +108,7 @@ const priceChart = LightweightCharts.createChart(
     handleScale:{
       mouseWheel:false,
       axisPressedMouseMove:false,
-      pinch:true          // ← ВКЛЮЧАЕМ ZOOM ДВУМЯ ПАЛЬЦАМИ
+      pinch:true
     },
     rightPriceScale:{visible:false},
     leftPriceScale:{visible:false}
@@ -125,7 +124,7 @@ const candles = priceChart.addCandlestickSeries({
   wickDownColor:'#e04b4b'
 });
 
-/* ===== VOLUME (NO SCALE) ===== */
+/* ===== VOLUME CHART (NO SCALE) ===== */
 const volumeChart = LightweightCharts.createChart(
   document.getElementById('volume'),
   {
@@ -145,15 +144,20 @@ const volume = volumeChart.addHistogramSeries({
   priceFormat:{type:'volume'}
 });
 
-/* ===== PERFECT SYNC (PAN + PINCH) ===== */
+/* ===== BIDIRECTIONAL PAN + PINCH SYNC ===== */
 let syncing = false;
 
-priceChart.timeScale().subscribeVisibleLogicalRangeChange(range=>{
-  if (syncing || range === null) return;
-  syncing = true;
-  volumeChart.timeScale().setVisibleLogicalRange(range);
-  syncing = false;
-});
+function syncCharts(a, b) {
+  a.timeScale().subscribeVisibleLogicalRangeChange(range=>{
+    if (syncing || range === null) return;
+    syncing = true;
+    b.timeScale().setVisibleLogicalRange(range);
+    syncing = false;
+  });
+}
+
+syncCharts(priceChart, volumeChart);
+syncCharts(volumeChart, priceChart);
 
 /* ===== DATA ===== */
 async function loadData(){
@@ -190,7 +194,7 @@ async function loadData(){
   priceChart.timeScale().fitContent();
 }
 
-/* ===== TF ===== */
+/* ===== TIMEFRAME ===== */
 function setTF(tf){
   INTERVAL=tf;
   document.querySelectorAll('.tf-buttons button')
