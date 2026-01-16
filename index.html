@@ -2,9 +2,7 @@
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport"
-      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>BTC-USDT · Net Volume</title>
 
 <script src="https://cdn.jsdelivr.net/npm/lightweight-charts@4.1.1/dist/lightweight-charts.standalone.production.js"></script>
@@ -15,10 +13,6 @@ body {
   background: #121417;
   color: #e6e6e6;
   font-family: Arial, sans-serif;
-
-  /* ПОЛНЫЙ ЗАПРЕТ touch */
-  touch-action: none;
-  overscroll-behavior: none;
 }
 
 .wrapper {
@@ -27,13 +21,8 @@ body {
   padding: 0 10px;
 }
 
-#price,
-#volume {
-  height: auto;
-  touch-action: none;
-  user-select: none;
-  -webkit-user-select: none;
-  overscroll-behavior: none;
+#price, #volume {
+  touch-action: pan-x;
 }
 
 #price { height: 420px; }
@@ -72,14 +61,24 @@ body {
 </div>
 
 <script>
-/* ===== ПОЛНЫЙ БЛОК touch/gesture ===== */
-['touchstart','touchmove','touchend','touchcancel',
- 'gesturestart','gesturechange','gestureend']
-.forEach(ev => {
-  document.addEventListener(ev, e => e.preventDefault(), { passive:false });
-});
-
 let INTERVAL = '1h';
+
+/* === КЛЮЧ: блок scale при долгом удержании === */
+let touchStartTime = 0;
+document.addEventListener('touchstart', e => {
+  if (e.touches.length === 1) {
+    touchStartTime = Date.now();
+  }
+}, { passive:true });
+
+document.addEventListener('touchmove', e => {
+  if (e.touches.length === 1) {
+    const dt = Date.now() - touchStartTime;
+    if (dt > 180) {
+      e.preventDefault(); // блокируем scale
+    }
+  }
+}, { passive:false });
 
 const commonOpts = {
   layout: { background:{color:'#121417'}, textColor:'#ccc' },
@@ -87,10 +86,8 @@ const commonOpts = {
   timeScale: { timeVisible:true },
 
   handleScroll: {
-    horzTouchDrag: false,   // touch ВЫКЛ
+    horzTouchDrag: true,
     vertTouchDrag: false,
-    pressedMouseMove: true,
-    mouseWheel: false,
   },
   handleScale: {
     pinch: false,
@@ -102,8 +99,7 @@ const commonOpts = {
 // PRICE
 const priceChart = LightweightCharts.createChart(
   document.getElementById('price'),
-  {
-    ...commonOpts,
+  { ...commonOpts,
     rightPriceScale:{visible:false},
     leftPriceScale:{visible:false}
   }
@@ -113,8 +109,7 @@ const candles = priceChart.addCandlestickSeries();
 // VOLUME
 const volumeChart = LightweightCharts.createChart(
   document.getElementById('volume'),
-  {
-    ...commonOpts,
+  { ...commonOpts,
     rightPriceScale:{visible:false},
     leftPriceScale:{visible:false}
   }
