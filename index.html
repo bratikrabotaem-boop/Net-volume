@@ -46,6 +46,7 @@ body {
   color:#fff;
 }
 
+/* Браузерные жесты запрещены */
 #price,#volume {
   touch-action:none !important;
 }
@@ -74,7 +75,7 @@ body {
 </div>
 
 <script>
-/* ===== iOS GESTURE BLOCK ===== */
+/* iOS browser zoom kill */
 ['gesturestart','gesturechange','gestureend'].forEach(e=>{
   document.addEventListener(e,ev=>ev.preventDefault(),{passive:false});
 });
@@ -97,20 +98,19 @@ const commonOpts = {
     pressedMouseMove:true,
     horzTouchDrag:true,
     vertTouchDrag:false
-  },
-
-  handleScale:{
-    mouseWheel:false,
-    axisPressedMouseMove:false,
-    pinch:false
   }
 };
 
-/* ===== PRICE ===== */
+/* ===== PRICE (PINCH ENABLED) ===== */
 const priceChart = LightweightCharts.createChart(
   document.getElementById('price'),
   {
     ...commonOpts,
+    handleScale:{
+      mouseWheel:false,
+      axisPressedMouseMove:false,
+      pinch:true          // ← ВКЛЮЧАЕМ ZOOM ДВУМЯ ПАЛЬЦАМИ
+    },
     rightPriceScale:{visible:false},
     leftPriceScale:{visible:false}
   }
@@ -125,11 +125,16 @@ const candles = priceChart.addCandlestickSeries({
   wickDownColor:'#e04b4b'
 });
 
-/* ===== VOLUME ===== */
+/* ===== VOLUME (NO SCALE) ===== */
 const volumeChart = LightweightCharts.createChart(
   document.getElementById('volume'),
   {
     ...commonOpts,
+    handleScale:{
+      mouseWheel:false,
+      axisPressedMouseMove:false,
+      pinch:false
+    },
     rightPriceScale:{visible:false},
     leftPriceScale:{visible:false}
   }
@@ -140,7 +145,7 @@ const volume = volumeChart.addHistogramSeries({
   priceFormat:{type:'volume'}
 });
 
-/* ===== PERFECT SYNC (PAN ONLY) ===== */
+/* ===== PERFECT SYNC (PAN + PINCH) ===== */
 let syncing = false;
 
 priceChart.timeScale().subscribeVisibleLogicalRangeChange(range=>{
@@ -185,7 +190,7 @@ async function loadData(){
   priceChart.timeScale().fitContent();
 }
 
-/* ===== TF SWITCH ===== */
+/* ===== TF ===== */
 function setTF(tf){
   INTERVAL=tf;
   document.querySelectorAll('.tf-buttons button')
