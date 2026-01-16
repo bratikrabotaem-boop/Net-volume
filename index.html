@@ -129,7 +129,7 @@ const volumeChart = LightweightCharts.createChart(
   }
 );
 
-const volume = volumeChart.addHistogramSeries({
+const volumeSeries = volumeChart.addHistogramSeries({
   base:0,
   priceFormat:{type:'volume'}
 });
@@ -149,14 +149,11 @@ syncCharts(volumeChart, priceChart);
 
 /* ===== RESIZE ===== */
 function resizeCharts(){
-  priceChart.resize(
-    price.clientWidth,
-    price.clientHeight
-  );
-  volumeChart.resize(
-    volume.clientWidth,
-    volume.clientHeight
-  );
+  const priceEl = document.getElementById('price');
+  const volumeEl = document.getElementById('volume');
+
+  priceChart.resize(priceEl.clientWidth, priceEl.clientHeight);
+  volumeChart.resize(volumeEl.clientWidth, volumeEl.clientHeight);
 }
 window.addEventListener('resize', resizeCharts);
 
@@ -197,7 +194,7 @@ async function loadData(){
   });
 
   candles.setData(c);
-  volume.setData(v);
+  volumeSeries.setData(v);
 
   priceChart.timeScale().fitContent();
   resizeCharts();
@@ -226,7 +223,7 @@ function startRealtime(currentSession){
     });
 
     const net = 2*k.Q - k.V;
-    volume.update({
+    volumeSeries.update({
       time,
       value:net/1e6,
       color:net>=0?'#1fc77b':'#e04b4b'
