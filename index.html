@@ -113,7 +113,7 @@ volumeChart.timeScale().subscribeVisibleTimeRangeChange(range=>{
 // ===== DATA =====
 async function loadData() {
   const r = await fetch(
-    `https://api.binance.com/api/v3/klines?symbol=BTCUSDT&interval=${INTERVAL}&limit=500`
+    `https://api.binance.com/api/v3/klines?symbol=BTCUSDT&interval=${INTERVAL}&limit=100`
   );
   const d = await r.json();
 
