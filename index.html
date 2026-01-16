@@ -81,6 +81,12 @@ let ws = null;
 let sessionId = 0;
 const tz = -new Date().getTimezoneOffset() * 60;
 
+/* ===== realtime volume state ===== */
+let currentBarTime = null;
+let lastV = 0;
+let lastQ = 0;
+let currentNet = 0;
+
 /* ===== COMMON OPTIONS ===== */
 const commonOpts = {
   layout:{ background:{color:'#121417'}, textColor:'#ccc' },
@@ -149,11 +155,8 @@ syncCharts(volumeChart, priceChart);
 
 /* ===== RESIZE ===== */
 function resizeCharts(){
-  const priceEl = document.getElementById('price');
-  const volumeEl = document.getElementById('volume');
-
-  priceChart.resize(priceEl.clientWidth, priceEl.clientHeight);
-  volumeChart.resize(volumeEl.clientWidth, volumeEl.clientHeight);
+  priceChart.resize(price.clientWidth, price.clientHeight);
+  volumeChart.resize(volume.clientWidth, volume.clientHeight);
 }
 window.addEventListener('resize', resizeCharts);
 
@@ -161,6 +164,9 @@ window.addEventListener('resize', resizeCharts);
 async function loadData(){
   sessionId++;
   const currentSession = sessionId;
+
+  currentBarTime = null;
+  currentNet = 0;
 
   if (ws) {
     ws.onmessage = null;
@@ -202,7 +208,7 @@ async function loadData(){
   startRealtime(currentSession);
 }
 
-/* ===== REALTIME WS ===== */
+/* ===== REALTIME ===== */
 function startRealtime(currentSession){
   ws = new WebSocket(
     `wss://stream.binance.com:9443/ws/btcusdt@kline_${INTERVAL}`
@@ -222,11 +228,25 @@ function startRealtime(currentSession){
       close:+k.c
     });
 
-    const net = 2*k.Q - k.V;
+    if (currentBarTime !== time) {
+      currentBarTime = time;
+      lastV = +k.V;
+      lastQ = +k.Q;
+      currentNet = 0;
+    }
+
+    const dV = +k.V - lastV;
+    const dQ = +k.Q - lastQ;
+
+    lastV = +k.V;
+    lastQ = +k.Q;
+
+    currentNet += (2*dQ - dV);
+
     volumeSeries.update({
       time,
-      value:net/1e6,
-      color:net>=0?'#1fc77b':'#e04b4b'
+      value: currentNet / 1e6,
+      color: currentNet >= 0 ? '#1fc77b' : '#e04b4b'
     });
   };
 
