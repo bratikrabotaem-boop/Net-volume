@@ -57,7 +57,7 @@ body {
 
 <script>
 let INTERVAL = '1h';
-const SCALE_WIDTH = 50; // ← ОДИНАКОВАЯ ширина шкал
+const SCALE_WIDTH = 55;
 
 const commonOpts = {
   layout: { background:{color:'#121417'}, textColor:'#ccc' },
@@ -73,7 +73,13 @@ const priceChart = LightweightCharts.createChart(
     rightPriceScale: {
       visible:true,
       borderColor:'#1e2228',
-      minimumWidth: SCALE_WIDTH
+      minimumWidth: SCALE_WIDTH,
+
+      // ⬇️ ВОТ ЭТО УБИРАЕТ .00
+      priceFormat: {
+        type: 'custom',
+        formatter: v => Math.round(v).toString()
+      }
     },
     leftPriceScale: { visible:false }
   }
@@ -93,7 +99,7 @@ const volumeChart = LightweightCharts.createChart(
     rightPriceScale: {
       visible:true,
       borderColor:'#1e2228',
-      minimumWidth: SCALE_WIDTH   // ← ТО ЖЕ ЗНАЧЕНИЕ
+      minimumWidth: SCALE_WIDTH
     },
     leftPriceScale: { visible:false }
   }
@@ -104,7 +110,7 @@ const volume = volumeChart.addHistogramSeries({
   priceFormat:{ type:'volume' }
 });
 
-// ===== SYNC TIME SCALE =====
+// ===== SYNC TIME =====
 priceChart.timeScale().subscribeVisibleTimeRangeChange(range=>{
   volumeChart.timeScale().setVisibleRange(range);
 });
