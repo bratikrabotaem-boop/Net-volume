@@ -58,8 +58,6 @@ body {
 <script>
 let INTERVAL = '1h';
 const SCALE_WIDTH = 55;
-
-// 🔒 ОДИНАКОВЫЕ ОТСТУПЫ ДЛЯ ОБОИХ ШКАЛ
 const SCALE_MARGINS = { top: 0.12, bottom: 0.12 };
 
 const commonOpts = {
@@ -132,8 +130,10 @@ async function loadData() {
   const d = await r.json();
 
   const c=[], v=[];
+  const tzOffset = -new Date().getTimezoneOffset() * 60; // локальное время (Москва)
+
   d.forEach(k=>{
-    const t = k[0]/1000;
+    const t = k[0]/1000 + tzOffset;
 
     c.push({
       time:t,
