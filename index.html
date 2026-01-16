@@ -1,3 +1,75 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport"
+      content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+
+<title>BTC-USDT · Net Volume</title>
+
+<script src="https://cdn.jsdelivr.net/npm/lightweight-charts@4.1.1/dist/lightweight-charts.standalone.production.js"></script>
+
+<style>
+body {
+  margin:0;
+  background:#121417;
+  color:#e6e6e6;
+  font-family:Arial,sans-serif;
+}
+.wrapper {
+  max-width:1100px;
+  margin:20px auto;
+  padding:0 10px;
+}
+.title { text-align:center; font-size:18px; }
+.sub { text-align:center; font-size:13px; color:#8a8a8a; margin-bottom:8px; }
+
+.tf-buttons {
+  display:flex;
+  justify-content:center;
+  gap:8px;
+  margin-bottom:8px;
+}
+.tf-buttons button {
+  background:#2a2d33;
+  border:0;
+  color:#ccc;
+  padding:5px 10px;
+  border-radius:4px;
+  font-size:12px;
+}
+.tf-buttons button.active {
+  background:#3f434b;
+  color:#fff;
+}
+
+#price,#volume {
+  width:100%;
+  touch-action:none;
+}
+#price { height:420px; }
+#volume { height:140px; }
+</style>
+</head>
+
+<body>
+<div class="wrapper">
+  <div class="title">BTC-USDT · NET VOLUME</div>
+  <div class="sub">BINANCE · REALTIME</div>
+
+  <div class="tf-buttons">
+    <button onclick="setTF('1d',this)">1D</button>
+    <button onclick="setTF('4h',this)">4H</button>
+    <button onclick="setTF('1h',this)" class="active">1H</button>
+    <button onclick="setTF('30m',this)">30M</button>
+    <button onclick="setTF('15m',this)">15M</button>
+    <button onclick="setTF('5m',this)">5M</button>
+  </div>
+
+  <div id="price"></div>
+  <div id="volume"></div>
+</div>
+
 <script>
 /* ===== iOS ZOOM BLOCK ===== */
 ['gesturestart','gesturechange','gestureend'].forEach(e=>{
@@ -12,11 +84,7 @@ let wsTF = null;
 const commonOpts = {
   layout:{ background:{color:'#121417'}, textColor:'#ccc' },
   grid:{ vertLines:{color:'#1e2228'}, horzLines:{color:'#1e2228'} },
-  timeScale:{
-    timeVisible:true,
-    rightBarStaysOnScroll:true,
-    lockVisibleTimeRangeOnResize:true
-  },
+  timeScale:{ timeVisible:true },
   handleScroll:{
     mouseWheel:false,
     pressedMouseMove:true,
@@ -77,14 +145,16 @@ syncCharts(volumeChart, priceChart);
 /* ===== RESIZE ===== */
 function resizeCharts(){
   priceChart.resize(
-    document.getElementById('price').clientWidth,
-    document.getElementById('price').clientHeight
+    price.clientWidth,
+    price.clientHeight
   );
   volumeChart.resize(
-    document.getElementById('volume').clientWidth,
-    document.getElementById('volume').clientHeight
+    volumeDiv.clientWidth,
+    volumeDiv.clientHeight
   );
 }
+const price = document.getElementById('price');
+const volumeDiv = document.getElementById('volume');
 window.addEventListener('resize', resizeCharts);
 
 /* ===== LOAD HISTORY ===== */
@@ -163,24 +233,20 @@ function startRealtime(){
       color:net>=0?'#1fc77b':'#e04b4b'
     });
   };
-
-  ws.onclose = () => {
-    if (wsTF === INTERVAL) {
-      setTimeout(startRealtime, 2000);
-    }
-  };
 }
 
 /* ===== TIMEFRAME ===== */
-function setTF(tf){
+function setTF(tf, btn){
   INTERVAL = tf;
 
   document.querySelectorAll('.tf-buttons button')
     .forEach(b=>b.classList.remove('active'));
-  event.target.classList.add('active');
 
+  btn.classList.add('active');
   loadData();
 }
 
 loadData();
 </script>
+</body>
+</html>
