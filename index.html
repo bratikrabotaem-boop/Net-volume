@@ -2,7 +2,11 @@
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<!-- КРИТИЧНО: полностью запрещаем браузерный zoom -->
+<meta name="viewport"
+      content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+
 <title>BTC-USDT · Net Volume</title>
 
 <script src="https://cdn.jsdelivr.net/npm/lightweight-charts@4.1.1/dist/lightweight-charts.standalone.production.js"></script>
@@ -14,23 +18,17 @@ body {
   color: #e6e6e6;
   font-family: Arial, sans-serif;
 }
+
 .wrapper {
   max-width: 1100px;
   margin: 20px auto;
   padding: 0 10px;
 }
-.title { text-align:center; font-size:18px; margin-bottom:4px; }
-.sub { text-align:center; font-size:13px; color:#8a8a8a; margin-bottom:8px; }
 
-.tf-buttons {
-  display:flex; justify-content:center; gap:8px; margin-bottom:8px;
+/* КРИТИЧНО: отключаем ВСЕ touch-жесты браузера */
+#price, #volume {
+  touch-action: none !important;
 }
-.tf-buttons button {
-  background:#2a2d33; border:0; color:#ccc;
-  padding:5px 10px; border-radius:4px; font-size:12px;
-  cursor:pointer;
-}
-.tf-buttons button.active { background:#3f434b; color:#fff; }
 
 #price { height: 420px; }
 #volume { height: 140px; }
@@ -38,33 +36,48 @@ body {
 </head>
 
 <body>
+
 <div class="wrapper">
-  <div class="title">BTC-USDT · NET VOLUME</div>
-  <div class="sub">BINANCE</div>
-
-  <div class="tf-buttons">
-    <button onclick="setTF('1d')">1D</button>
-    <button onclick="setTF('4h')">4H</button>
-    <button onclick="setTF('1h')" class="active">1H</button>
-    <button onclick="setTF('30m')">30M</button>
-    <button onclick="setTF('15m')">15M</button>
-    <button onclick="setTF('5m')">5M</button>
-  </div>
-
   <div id="price"></div>
   <div id="volume"></div>
 </div>
 
 <script>
-let INTERVAL = '1h';
+/* ===== ЖЁСТКО БЛОКИРУЕМ iOS GESTURE API ===== */
+['gesturestart','gesturechange','gestureend'].forEach(ev => {
+  document.addEventListener(ev, e => e.preventDefault(), { passive:false });
+});
 
+/* ===== ОБЩИЕ НАСТРОЙКИ ===== */
 const commonOpts = {
-  layout: { background:{color:'#121417'}, textColor:'#ccc' },
-  grid: { vertLines:{color:'#1e2228'}, horzLines:{color:'#1e2228'} },
-  timeScale: { timeVisible:true }
+  layout: {
+    background: { color:'#121417' },
+    textColor:'#ccc'
+  },
+  grid: {
+    vertLines:{ color:'#1e2228' },
+    horzLines:{ color:'#1e2228' }
+  },
+  timeScale: {
+    timeVisible:true
+  },
+
+  /* ОСТАВЛЯЕМ ТОЛЬКО PAN */
+  handleScroll: {
+    mouseWheel: false,
+    pressedMouseMove: true,
+    horzTouchDrag: true,
+    vertTouchDrag: false
+  },
+
+  /* ПОЛНОСТЬЮ УБИРАЕМ SCALE */
+  handleScale: {
+    mouseWheel: false,
+    axisPressedMouseMove: false
+  }
 };
 
-// ===== PRICE CHART =====
+/* ===== PRICE CHART ===== */
 const priceChart = LightweightCharts.createChart(
   document.getElementById('price'),
   {
@@ -80,14 +93,10 @@ const candles = priceChart.addCandlestickSeries({
   borderUpColor:'#1fc77b',
   borderDownColor:'#e04b4b',
   wickUpColor:'#1fc77b',
-  wickDownColor:'#e04b4b',
-  priceFormat: {
-    type: 'custom',
-    formatter: v => Math.round(v).toString()
-  }
+  wickDownColor:'#e04b4b'
 });
 
-// ===== VOLUME CHART =====
+/* ===== VOLUME CHART ===== */
 const volumeChart = LightweightCharts.createChart(
   document.getElementById('volume'),
   {
@@ -102,18 +111,18 @@ const volume = volumeChart.addHistogramSeries({
   priceFormat:{ type:'volume' }
 });
 
-// ===== SYNC TIME =====
-priceChart.timeScale().subscribeVisibleTimeRangeChange(range=>{
-  volumeChart.timeScale().setVisibleRange(range);
+/* ===== SYNC TIME ===== */
+priceChart.timeScale().subscribeVisibleTimeRangeChange(r=>{
+  volumeChart.timeScale().setVisibleRange(r);
 });
-volumeChart.timeScale().subscribeVisibleTimeRangeChange(range=>{
-  priceChart.timeScale().setVisibleRange(range);
+volumeChart.timeScale().subscribeVisibleTimeRangeChange(r=>{
+  priceChart.timeScale().setVisibleRange(r);
 });
 
-// ===== DATA =====
+/* ===== DATA ===== */
 async function loadData() {
   const r = await fetch(
-    `https://api.binance.com/api/v3/klines?symbol=BTCUSDT&interval=${INTERVAL}&limit=100`
+    'https://api.binance.com/api/v3/klines?symbol=BTCUSDT&interval=1h&limit=300'
   );
   const d = await r.json();
 
@@ -144,14 +153,6 @@ async function loadData() {
 
   priceChart.timeScale().fitContent();
   volumeChart.timeScale().fitContent();
-}
-
-function setTF(tf){
-  INTERVAL=tf;
-  document.querySelectorAll('.tf-buttons button')
-    .forEach(b=>b.classList.remove('active'));
-  event.target.classList.add('active');
-  loadData();
 }
 
 loadData();
