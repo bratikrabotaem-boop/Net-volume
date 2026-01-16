@@ -29,7 +29,6 @@ body {
   justify-content:center;
   gap:8px;
   margin-bottom:8px;
-  flex-wrap:wrap; /* Для мобильных */
 }
 .tf-buttons button {
   background:#2a2d33;
@@ -39,36 +38,18 @@ body {
   border-radius:4px;
   font-size:12px;
   cursor:pointer;
-  transition:background 0.2s;
-}
-.tf-buttons button:hover {
-  background:#3f434b;
 }
 .tf-buttons button.active {
   background:#3f434b;
   color:#fff;
 }
 
-.loading {
-  text-align:center;
-  color:#8a8a8a;
-  font-size:14px;
-  margin:20px 0;
-}
-
-#price, #volume {
-  touch-action:none !important;
+#price,#volume {
   width:100%;
+  touch-action:none;
 }
-/* Responsive heights */
 #price { height:420px; }
 #volume { height:140px; }
-@media (max-width: 768px) {
-  #price { height:300px; }
-  #volume { height:100px; }
-  .tf-buttons { gap:4px; }
-  .tf-buttons button { padding:4px 8px; font-size:11px; }
-}
 </style>
 </head>
 
@@ -78,290 +59,203 @@ body {
   <div class="sub">BINANCE · REALTIME</div>
 
   <div class="tf-buttons">
-    <button onclick="setTF('1d', this)">1D</button>
-    <button onclick="setTF('4h', this)">4H</button>
-    <button onclick="setTF('1h', this)" class="active">1H</button>
-    <button onclick="setTF('30m', this)">30M</button>
-    <button onclick="setTF('15m', this)">15M</button>
-    <button onclick="setTF('5m', this)">5M</button>
+    <button data-tf="1d">1D</button>
+    <button data-tf="4h">4H</button>
+    <button data-tf="1h" class="active">1H</button>
+    <button data-tf="30m">30M</button>
+    <button data-tf="15m">15M</button>
+    <button data-tf="5m">5M</button>
   </div>
 
-  <div id="loading" class="loading" style="display:none;">Загрузка данных...</div>
   <div id="price"></div>
   <div id="volume"></div>
 </div>
 
 <script>
-/* ===== iOS ZOOM BLOCK ===== */
+/* ================== CONST ================== */
+const SYMBOL = 'BTCUSDT';
+const LIMIT = 500;
+const VOLUME_DIVIDER = 1e6;
+const RECONNECT_BASE = 2000;
+const RECONNECT_MAX = 30000;
+
+/* ================== iOS ZOOM BLOCK ================== */
 ['gesturestart','gesturechange','gestureend'].forEach(e=>{
   document.addEventListener(e,ev=>ev.preventDefault(),{passive:false});
 });
 
-/* ===== TIME FORMAT (БЕЗ СЕКУНД, БЕЗ СМЕЩЕНИЙ) ===== */
-function formatTimeNoSeconds(time) {
+/* ================== TIME FORMAT ================== */
+function formatTimeNoSeconds(time){
   const d = new Date(time * 1000);
-  const date = d.toLocaleDateString('ru-RU', {
-    day: '2-digit',
-    month: 'short',
-    year: '2-digit'
-  });
-  const hh = String(d.getHours()).padStart(2, '0');
-  const mm = String(d.getMinutes()).padStart(2, '0');
-  return `${date} ${hh}:${mm}`;
+  return d.toLocaleDateString('ru-RU',{day:'2-digit',month:'short',year:'2-digit'}) +
+         ` ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
 }
 
-/* ===== APP STATE ===== */
+/* ================== STATE ================== */
 let INTERVAL = '1h';
 let ws = null;
 let sessionId = 0;
-let debounceTimer = null;
+let reconnectDelay = RECONNECT_BASE;
 
-/* ===== REALTIME VOLUME STATE ===== */
 let currentBarTime = null;
 let lastV = 0;
 let lastQ = 0;
 let currentNet = 0;
 let baseNet = 0;
+let rafLock = false;
 
-/* ===== ELEMENTS ===== */
-const priceEl = document.getElementById('price');
-const volumeEl = document.getElementById('volume');
-const loadingEl = document.getElementById('loading');
+/* ================== UTILS ================== */
+const calcNet = (dQ,dV)=>2*dQ - dV;
 
-/* ===== COMMON OPTIONS ===== */
+/* ================== COMMON OPTIONS ================== */
 const commonOpts = {
-  layout: { background: { color: '#121417' }, textColor: '#ccc' },
-  grid: { vertLines: { color: '#1e2228' }, horzLines: { color: '#1e2228' } },
-  localization: {
-    timeFormatter: formatTimeNoSeconds
+  layout:{ background:{color:'#121417'}, textColor:'#ccc' },
+  grid:{ vertLines:{color:'#1e2228'}, horzLines:{color:'#1e2228'} },
+  localization:{ timeFormatter:formatTimeNoSeconds },
+  crosshair:{ mode:LightweightCharts.CrosshairMode.Normal },
+  timeScale:{
+    timeVisible:true,
+    secondsVisible:false,
+    rightBarStaysOnScroll:true,
+    lockVisibleTimeRangeOnResize:true
   },
-  timeScale: {
-    timeVisible: true,
-    secondsVisible: false,
-    timeFormatter: formatTimeNoSeconds,
-    rightBarStaysOnScroll: true,
-    lockVisibleTimeRangeOnResize: true
-  },
-  handleScroll: {
-    mouseWheel: false,
-    pressedMouseMove: true,
-    horzTouchDrag: true,
-    vertTouchDrag: false
-  }
+  handleScroll:{ mouseWheel:false, pressedMouseMove:true, horzTouchDrag:true }
 };
 
-/* ===== PRICE CHART ===== */
-const priceChart = LightweightCharts.createChart(priceEl, {
-  ...commonOpts,
-  handleScale: { mouseWheel: false, axisPressedMouseMove: false, pinch: true },
-  rightPriceScale: { visible: false },
-  leftPriceScale: { visible: false }
-});
-
+/* ================== CHARTS ================== */
+const priceChart = LightweightCharts.createChart(
+  price,
+  {...commonOpts, handleScale:{mouseWheel:false,pinch:true}}
+);
 const candles = priceChart.addCandlestickSeries({
-  upColor: '#1fc77b',
-  downColor: '#e04b4b',
-  borderUpColor: '#1fc77b',
-  borderDownColor: '#e04b4b',
-  wickUpColor: '#1fc77b',
-  wickDownColor: '#e04b4b'
+  upColor:'#1fc77b', downColor:'#e04b4b',
+  borderUpColor:'#1fc77b', borderDownColor:'#e04b4b',
+  wickUpColor:'#1fc77b', wickDownColor:'#e04b4b'
 });
 
-/* ===== VOLUME CHART ===== */
-const volumeChart = LightweightCharts.createChart(volumeEl, {
-  ...commonOpts,
-  handleScale: { mouseWheel: false, axisPressedMouseMove: false, pinch: false },
-  rightPriceScale: { visible: false },
-  leftPriceScale: { visible: false }
-});
-
+const volumeChart = LightweightCharts.createChart(
+  volume,
+  {...commonOpts, handleScale:{mouseWheel:false,pinch:false}}
+);
 const volumeSeries = volumeChart.addHistogramSeries({
-  base: 0,
-  priceFormat: { type: 'volume' }
+  base:0, priceFormat:{type:'volume'}
 });
 
-/* ===== SYNC CHARTS ===== */
-let syncing = false;
-function syncCharts(a, b) {
-  a.timeScale().subscribeVisibleLogicalRangeChange(range => {
-    if (syncing || !range) return;
-    syncing = true;
-    b.timeScale().setVisibleLogicalRange(range);
-    syncing = false;
+/* ================== SYNC ================== */
+let syncing=false;
+function sync(a,b){
+  a.timeScale().subscribeVisibleLogicalRangeChange(r=>{
+    if(syncing||!r) return;
+    syncing=true;
+    b.timeScale().setVisibleLogicalRange(r);
+    syncing=false;
   });
 }
-syncCharts(priceChart, volumeChart);
-syncCharts(volumeChart, priceChart);
+sync(priceChart,volumeChart);
+sync(volumeChart,priceChart);
 
-/* ===== RESIZE ===== */
-function resizeCharts() {
-  priceChart.resize(priceEl.clientWidth, priceEl.clientHeight);
-  volumeChart.resize(volumeEl.clientWidth, volumeEl.clientHeight);
+/* ================== RESIZE ================== */
+function resize(){
+  priceChart.resize(price.clientWidth,price.clientHeight);
+  volumeChart.resize(volume.clientWidth,volume.clientHeight);
 }
-window.addEventListener('resize', resizeCharts);
-resizeCharts(); // Initial resize
+window.addEventListener('resize',resize);
 
-/* ===== DEBOUNCE FOR API CALLS ===== */
-function debounceLoadData() {
-  if (debounceTimer) clearTimeout(debounceTimer);
-  debounceTimer = setTimeout(loadData, 500);
-}
-
-/* ===== LOAD HISTORY ===== */
-async function loadData() {
+/* ================== LOAD HISTORY ================== */
+async function loadData(){
   sessionId++;
-  const currentSession = sessionId;
-  loadingEl.style.display = 'block';
+  const sid=sessionId;
 
-  // Reset state
-  currentBarTime = null;
-  currentNet = 0;
-  baseNet = 0;
-  lastV = 0;
-  lastQ = 0;
+  currentBarTime=null;
+  currentNet=0;
+  baseNet=0;
+  reconnectDelay=RECONNECT_BASE;
 
-  // Close existing WS
-  if (ws) {
-    ws.onmessage = null;
-    ws.close();
-    ws = null;
-  }
+  if(ws){ ws.close(); ws=null; }
 
-  try {
-    const response = await fetch(
-      `https://api.binance.com/api/v3/klines?symbol=BTCUSDT&interval=${INTERVAL}&limit=500`
+  try{
+    const r=await fetch(
+      `https://api.binance.com/api/v3/klines?symbol=${SYMBOL}&interval=${INTERVAL}&limit=${LIMIT}`
     );
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    const data = await response.json();
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    const d=await r.json();
 
-    const candlesData = [];
-    const volumeData = [];
-    data.forEach(k => {
-      const time = k[0] / 1000; // UTC seconds
-
-      candlesData.push({
-        time: time,
-        open: +k[1],
-        high: +k[2],
-        low: +k[3],
-        close: +k[4]
-      });
-
-      const net = 2 * k[10] - k[7]; // 2*quote - base
-      volumeData.push({
-        time: time,
-        value: net / 1e6,
-        color: net >= 0 ? '#1fc77b' : '#e04b4b'
-      });
+    const c=[],v=[];
+    d.forEach(k=>{
+      const t=k[0]/1000;
+      const net=calcNet(+k[10],+k[7]);
+      c.push({time:t,open:+k[1],high:+k[2],low:+k[3],close:+k[4]});
+      v.push({time:t,value:net/VOLUME_DIVIDER,color:net>=0?'#1fc77b':'#e04b4b'});
     });
 
-    // Set baseNet from the last complete bar (before current)
-    const lastCompleteBar = data[data.length - 2] || data[data.length - 1];
-    if (lastCompleteBar) {
-      baseNet = (2 * +lastCompleteBar[10] - +lastCompleteBar[7]) / 1e6;
-    }
+    baseNet=calcNet(+d.at(-1)[10],+d.at(-1)[7]);
 
-    candles.setData(candlesData);
-    volumeSeries.setData(volumeData);
-
+    candles.setData(c);
+    volumeSeries.setData(v);
     priceChart.timeScale().fitContent();
-    resizeCharts();
+    resize();
 
-    // Start realtime only if this is the current session
-    if (currentSession === sessionId) {
-      startRealtime(currentSession);
-    }
-  } catch (error) {
-    console.error('Error loading data:', error);
-    alert('Ошибка загрузки данных. Проверьте соединение и попробуйте снова.');
-  } finally {
-    if (currentSession === sessionId) {
-      loadingEl.style.display = 'none';
-    }
+    startRealtime(sid);
+  }catch(e){
+    console.error('Load error',e);
   }
 }
 
-/* ===== REALTIME ===== */
-function startRealtime(currentSession) {
-  if (currentSession !== sessionId) return;
+/* ================== REALTIME ================== */
+function startRealtime(sid){
+  ws=new WebSocket(`wss://stream.binance.com:9443/ws/btcusdt@kline_${INTERVAL}`);
 
-  ws = new WebSocket(
-    `wss://stream.binance.com:9443/ws/btcusdt@kline_${INTERVAL}`
-  );
+  ws.onmessage=e=>{
+    if(sid!==sessionId||rafLock) return;
+    rafLock=true;
+    requestAnimationFrame(()=>{
+      rafLock=false;
+      const k=JSON.parse(e.data).k;
+      const time=Math.floor(k.t/1000);
 
-  ws.onopen = () => {
-    console.log('WS connected');
-  };
+      candles.update({time,open:+k.o,high:+k.h,low:+k.l,close:+k.c});
 
-  ws.onmessage = (e) => {
-    if (currentSession !== sessionId) return;
-
-    try {
-      const kline = JSON.parse(e.data).k;
-      const time = Math.floor(kline.t / 1000);
-
-      // Update candle
-      candles.update({
-        time: time,
-        open: +kline.o,
-        high: +kline.h,
-        low: +kline.l,
-        close: +kline.c
-      });
-
-      // Handle volume net
-      if (currentBarTime !== time) {
-        currentBarTime = time;
-        lastV = +kline.V;
-        lastQ = +kline.Q;
-        currentNet = baseNet * 1e6; // Start from base (in raw units)
+      if(currentBarTime!==time){
+        currentBarTime=time;
+        lastV=+k.V; lastQ=+k.Q;
+        currentNet=baseNet;
       }
 
-      const dV = +kline.V - lastV;
-      const dQ = +kline.Q - lastQ;
-      lastV = +kline.V;
-      lastQ = +kline.Q;
+      const dV=+k.V-lastV;
+      const dQ=+k.Q-lastQ;
+      lastV=+k.V; lastQ=+k.Q;
 
-      currentNet += (2 * dQ - dV); // Increment net
+      currentNet+=calcNet(dQ,dV);
 
-      // Update volume bar
       volumeSeries.update({
-        time: time,
-        value: currentNet / 1e6,
-        color: currentNet >= 0 ? '#1fc77b' : '#e04b4b'
+        time,
+        value:currentNet/VOLUME_DIVIDER,
+        color:currentNet>=0?'#1fc77b':'#e04b4b'
       });
-    } catch (err) {
-      console.error('WS message error:', err);
-    }
+    });
   };
 
-  ws.onerror = (err) => {
-    console.error('WS error:', err);
-  };
-
-  ws.onclose = () => {
-    console.log('WS closed, reconnecting...');
-    if (currentSession === sessionId) {
-      setTimeout(() => startRealtime(currentSession), 2000);
-    }
+  ws.onclose=()=>{
+    if(sid!==sessionId) return;
+    setTimeout(()=>startRealtime(sid),reconnectDelay);
+    reconnectDelay=Math.min(reconnectDelay*1.5,RECONNECT_MAX);
   };
 }
 
-/* ===== TIMEFRAME CHANGE ===== */
-function setTF(tf, buttonEl) {
-  if (INTERVAL === tf) return; // Already active
+/* ================== TF ================== */
+document.querySelector('.tf-buttons').onclick=e=>{
+  if(!e.target.dataset.tf) return;
+  INTERVAL=e.target.dataset.tf;
+  document.querySelectorAll('.tf-buttons button')
+    .forEach(b=>b.classList.toggle('active',b===e.target));
+  loadData();
+};
 
-  INTERVAL = tf;
+/* ================== CLEANUP ================== */
+window.addEventListener('beforeunload',()=>{
+  if(ws) ws.close();
+});
 
-  // Update active button
-  document.querySelectorAll('.tf-buttons button').forEach(b => b.classList.remove('active'));
-  buttonEl.classList.add('active');
-
-  // Debounced load
-  debounceLoadData();
-}
-
-// Initial load
 loadData();
 </script>
 </body>
