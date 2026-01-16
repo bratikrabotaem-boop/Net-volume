@@ -77,7 +77,8 @@ body {
 });
 
 let INTERVAL = '1h';
-let ws;
+let ws = null;
+let sessionId = 0;
 const tz = -new Date().getTimezoneOffset() * 60;
 
 /* ===== COMMON OPTIONS ===== */
@@ -149,19 +150,26 @@ syncCharts(volumeChart, priceChart);
 /* ===== RESIZE ===== */
 function resizeCharts(){
   priceChart.resize(
-    document.getElementById('price').clientWidth,
-    document.getElementById('price').clientHeight
+    price.clientWidth,
+    price.clientHeight
   );
   volumeChart.resize(
-    document.getElementById('volume').clientWidth,
-    document.getElementById('volume').clientHeight
+    volume.clientWidth,
+    volume.clientHeight
   );
 }
 window.addEventListener('resize', resizeCharts);
 
 /* ===== LOAD HISTORY ===== */
 async function loadData(){
-  if (ws) ws.close();
+  sessionId++;
+  const currentSession = sessionId;
+
+  if (ws) {
+    ws.onmessage = null;
+    ws.close();
+    ws = null;
+  }
 
   const r = await fetch(
     `https://api.binance.com/api/v3/klines?symbol=BTCUSDT&interval=${INTERVAL}&limit=500`
@@ -194,16 +202,18 @@ async function loadData(){
   priceChart.timeScale().fitContent();
   resizeCharts();
 
-  startRealtime();
+  startRealtime(currentSession);
 }
 
 /* ===== REALTIME WS ===== */
-function startRealtime(){
+function startRealtime(currentSession){
   ws = new WebSocket(
     `wss://stream.binance.com:9443/ws/btcusdt@kline_${INTERVAL}`
   );
 
   ws.onmessage = e => {
+    if (currentSession !== sessionId) return;
+
     const k = JSON.parse(e.data).k;
     const time = Math.floor(k.t/1000) + tz;
 
@@ -224,7 +234,8 @@ function startRealtime(){
   };
 
   ws.onclose = () => {
-    setTimeout(startRealtime, 2000);
+    if (currentSession !== sessionId) return;
+    setTimeout(()=>startRealtime(currentSession),2000);
   };
 }
 
