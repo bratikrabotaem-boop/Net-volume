@@ -59,6 +59,9 @@ body {
 let INTERVAL = '1h';
 const SCALE_WIDTH = 55;
 
+// 🔒 ОДИНАКОВЫЕ ОТСТУПЫ ДЛЯ ОБОИХ ШКАЛ
+const SCALE_MARGINS = { top: 0.12, bottom: 0.12 };
+
 const commonOpts = {
   layout: { background:{color:'#121417'}, textColor:'#ccc' },
   grid: { vertLines:{color:'#1e2228'}, horzLines:{color:'#1e2228'} },
@@ -73,13 +76,13 @@ const priceChart = LightweightCharts.createChart(
     rightPriceScale: {
       visible:true,
       borderColor:'#1e2228',
-      minimumWidth: SCALE_WIDTH
+      minimumWidth: SCALE_WIDTH,
+      scaleMargins: SCALE_MARGINS
     },
     leftPriceScale: { visible:false }
   }
 );
 
-// 🔴 ВАЖНО: priceFormat ЗАДАЁТСЯ ЗДЕСЬ
 const candles = priceChart.addCandlestickSeries({
   upColor:'#1fc77b',
   downColor:'#e04b4b',
@@ -87,8 +90,6 @@ const candles = priceChart.addCandlestickSeries({
   borderDownColor:'#e04b4b',
   wickUpColor:'#1fc77b',
   wickDownColor:'#e04b4b',
-
-  // ⬇️ УБИРАЕТ .00
   priceFormat: {
     type: 'custom',
     formatter: v => Math.round(v).toString()
@@ -103,7 +104,8 @@ const volumeChart = LightweightCharts.createChart(
     rightPriceScale: {
       visible:true,
       borderColor:'#1e2228',
-      minimumWidth: SCALE_WIDTH
+      minimumWidth: SCALE_WIDTH,
+      scaleMargins: SCALE_MARGINS
     },
     leftPriceScale: { visible:false }
   }
@@ -151,6 +153,7 @@ async function loadData() {
 
   candles.setData(c);
   volume.setData(v);
+
   priceChart.timeScale().fitContent();
   volumeChart.timeScale().fitContent();
 }
