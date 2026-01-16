@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 
-<!-- КРИТИЧНО: полностью запрещаем браузерный zoom -->
+<!-- Отключаем браузерный zoom -->
 <meta name="viewport"
       content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 
@@ -25,7 +25,42 @@ body {
   padding: 0 10px;
 }
 
-/* КРИТИЧНО: отключаем ВСЕ touch-жесты браузера */
+.title {
+  text-align:center;
+  font-size:18px;
+  margin-bottom:4px;
+}
+
+.sub {
+  text-align:center;
+  font-size:13px;
+  color:#8a8a8a;
+  margin-bottom:8px;
+}
+
+.tf-buttons {
+  display:flex;
+  justify-content:center;
+  gap:8px;
+  margin-bottom:8px;
+}
+
+.tf-buttons button {
+  background:#2a2d33;
+  border:0;
+  color:#ccc;
+  padding:5px 10px;
+  border-radius:4px;
+  font-size:12px;
+  cursor:pointer;
+}
+
+.tf-buttons button.active {
+  background:#3f434b;
+  color:#fff;
+}
+
+/* КРИТИЧНО: отключаем все touch-жесты браузера */
 #price, #volume {
   touch-action: none !important;
 }
@@ -38,31 +73,37 @@ body {
 <body>
 
 <div class="wrapper">
+  <div class="title">BTC-USDT · NET VOLUME</div>
+  <div class="sub">BINANCE</div>
+
+  <div class="tf-buttons">
+    <button onclick="setTF('1d')">1D</button>
+    <button onclick="setTF('4h')">4H</button>
+    <button onclick="setTF('1h')" class="active">1H</button>
+    <button onclick="setTF('30m')">30M</button>
+    <button onclick="setTF('15m')">15M</button>
+    <button onclick="setTF('5m')">5M</button>
+  </div>
+
   <div id="price"></div>
   <div id="volume"></div>
 </div>
 
 <script>
-/* ===== ЖЁСТКО БЛОКИРУЕМ iOS GESTURE API ===== */
+/* ЖЁСТКАЯ БЛОКИРОВКА iOS GESTURE */
 ['gesturestart','gesturechange','gestureend'].forEach(ev => {
   document.addEventListener(ev, e => e.preventDefault(), { passive:false });
 });
 
-/* ===== ОБЩИЕ НАСТРОЙКИ ===== */
-const commonOpts = {
-  layout: {
-    background: { color:'#121417' },
-    textColor:'#ccc'
-  },
-  grid: {
-    vertLines:{ color:'#1e2228' },
-    horzLines:{ color:'#1e2228' }
-  },
-  timeScale: {
-    timeVisible:true
-  },
+let INTERVAL = '1h';
 
-  /* ОСТАВЛЯЕМ ТОЛЬКО PAN */
+/* ОБЩИЕ НАСТРОЙКИ */
+const commonOpts = {
+  layout: { background:{color:'#121417'}, textColor:'#ccc' },
+  grid: { vertLines:{color:'#1e2228'}, horzLines:{color:'#1e2228'} },
+  timeScale: { timeVisible:true },
+
+  /* ТОЛЬКО PAN */
   handleScroll: {
     mouseWheel: false,
     pressedMouseMove: true,
@@ -70,14 +111,15 @@ const commonOpts = {
     vertTouchDrag: false
   },
 
-  /* ПОЛНОСТЬЮ УБИРАЕМ SCALE */
+  /* БЕЗ SCALE */
   handleScale: {
     mouseWheel: false,
-    axisPressedMouseMove: false
+    axisPressedMouseMove: false,
+    pinch: false
   }
 };
 
-/* ===== PRICE CHART ===== */
+/* PRICE CHART */
 const priceChart = LightweightCharts.createChart(
   document.getElementById('price'),
   {
@@ -93,10 +135,14 @@ const candles = priceChart.addCandlestickSeries({
   borderUpColor:'#1fc77b',
   borderDownColor:'#e04b4b',
   wickUpColor:'#1fc77b',
-  wickDownColor:'#e04b4b'
+  wickDownColor:'#e04b4b',
+  priceFormat: {
+    type: 'custom',
+    formatter: v => Math.round(v).toString()
+  }
 });
 
-/* ===== VOLUME CHART ===== */
+/* VOLUME CHART */
 const volumeChart = LightweightCharts.createChart(
   document.getElementById('volume'),
   {
@@ -111,7 +157,7 @@ const volume = volumeChart.addHistogramSeries({
   priceFormat:{ type:'volume' }
 });
 
-/* ===== SYNC TIME ===== */
+/* SYNC TIME */
 priceChart.timeScale().subscribeVisibleTimeRangeChange(r=>{
   volumeChart.timeScale().setVisibleRange(r);
 });
@@ -119,10 +165,10 @@ volumeChart.timeScale().subscribeVisibleTimeRangeChange(r=>{
   priceChart.timeScale().setVisibleRange(r);
 });
 
-/* ===== DATA ===== */
+/* DATA */
 async function loadData() {
   const r = await fetch(
-    'https://api.binance.com/api/v3/klines?symbol=BTCUSDT&interval=1h&limit=300'
+    `https://api.binance.com/api/v3/klines?symbol=BTCUSDT&interval=${INTERVAL}&limit=500`
   );
   const d = await r.json();
 
@@ -153,6 +199,14 @@ async function loadData() {
 
   priceChart.timeScale().fitContent();
   volumeChart.timeScale().fitContent();
+}
+
+function setTF(tf){
+  INTERVAL = tf;
+  document.querySelectorAll('.tf-buttons button')
+    .forEach(b=>b.classList.remove('active'));
+  event.target.classList.add('active');
+  loadData();
 }
 
 loadData();
