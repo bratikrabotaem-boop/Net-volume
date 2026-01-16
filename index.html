@@ -3,7 +3,6 @@
 <head>
 <meta charset="UTF-8">
 
-<!-- Полный запрет браузерного zoom -->
 <meta name="viewport"
       content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 
@@ -25,9 +24,6 @@ body {
   padding:0 10px;
 }
 
-.title { text-align:center; font-size:18px; }
-.sub { text-align:center; font-size:13px; color:#8a8a8a; margin-bottom:8px; }
-
 .tf-buttons {
   display:flex;
   justify-content:center;
@@ -41,14 +37,12 @@ body {
   padding:5px 10px;
   border-radius:4px;
   font-size:12px;
-  cursor:pointer;
 }
 .tf-buttons button.active {
   background:#3f434b;
   color:#fff;
 }
 
-/* Жёстко отключаем touch-жесты браузера */
 #price,#volume {
   touch-action:none !important;
 }
@@ -60,8 +54,6 @@ body {
 
 <body>
 <div class="wrapper">
-  <div class="title">BTC-USDT · NET VOLUME</div>
-  <div class="sub">BINANCE</div>
 
   <div class="tf-buttons">
     <button onclick="setTF('1d')">1D</button>
@@ -77,27 +69,23 @@ body {
 </div>
 
 <script>
-/* ===== iOS GESTURE BLOCK ===== */
-['gesturestart','gesturechange','gestureend'].forEach(ev=>{
-  document.addEventListener(ev,e=>e.preventDefault(),{passive:false});
+/* iOS gesture kill */
+['gesturestart','gesturechange','gestureend'].forEach(e=>{
+  document.addEventListener(e,ev=>ev.preventDefault(),{passive:false});
 });
 
-/* ===== STATE ===== */
 let INTERVAL = '1h';
 
-/* ===== COMMON OPTIONS ===== */
 const commonOpts = {
-  layout:{
-    background:{color:'#121417'},
-    textColor:'#ccc'
-  },
-  grid:{
-    vertLines:{color:'#1e2228'},
-    horzLines:{color:'#1e2228'}
-  },
-  timeScale:{ timeVisible:true },
+  layout:{ background:{color:'#121417'}, textColor:'#ccc' },
+  grid:{ vertLines:{color:'#1e2228'}, horzLines:{color:'#1e2228'} },
 
-  /* Только PAN */
+  timeScale:{
+    timeVisible:true,
+    rightBarStaysOnScroll:true,
+    lockVisibleTimeRangeOnResize:true
+  },
+
   handleScroll:{
     mouseWheel:false,
     pressedMouseMove:true,
@@ -105,7 +93,6 @@ const commonOpts = {
     vertTouchDrag:false
   },
 
-  /* Полный запрет SCALE */
   handleScale:{
     mouseWheel:false,
     axisPressedMouseMove:false,
@@ -113,7 +100,7 @@ const commonOpts = {
   }
 };
 
-/* ===== PRICE CHART ===== */
+/* PRICE */
 const priceChart = LightweightCharts.createChart(
   document.getElementById('price'),
   {
@@ -132,7 +119,7 @@ const candles = priceChart.addCandlestickSeries({
   wickDownColor:'#e04b4b'
 });
 
-/* ===== VOLUME CHART ===== */
+/* VOLUME */
 const volumeChart = LightweightCharts.createChart(
   document.getElementById('volume'),
   {
@@ -147,15 +134,12 @@ const volume = volumeChart.addHistogramSeries({
   priceFormat:{type:'volume'}
 });
 
-/* ===== SYNC TIME ===== */
+/* === ONE-WAY SYNC (NO SCALE) === */
 priceChart.timeScale().subscribeVisibleTimeRangeChange(r=>{
   volumeChart.timeScale().setVisibleRange(r);
 });
-volumeChart.timeScale().subscribeVisibleTimeRangeChange(r=>{
-  priceChart.timeScale().setVisibleRange(r);
-});
 
-/* ===== DATA ===== */
+/* DATA */
 async function loadData(){
   const r = await fetch(
     `https://api.binance.com/api/v3/klines?symbol=BTCUSDT&interval=${INTERVAL}&limit=500`
@@ -188,14 +172,12 @@ async function loadData(){
   volume.setData(v);
 
   priceChart.timeScale().fitContent();
-  volumeChart.timeScale().fitContent();
 }
 
-/* ===== TF SWITCH ===== */
+/* TF */
 function setTF(tf){
   INTERVAL=tf;
-  document.querySelectorAll('.tf-buttons button')
-    .forEach(b=>b.classList.remove('active'));
+  document.querySelectorAll('button').forEach(b=>b.classList.remove('active'));
   event.target.classList.add('active');
   loadData();
 }
