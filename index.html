@@ -2,9 +2,10 @@
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport"
+      content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 
-<title>BTC-USDT · Net Volume</title>
+<title>BTC-USDT · Net Volume (Realtime)</title>
 
 <script src="https://cdn.jsdelivr.net/npm/lightweight-charts@4.1.1/dist/lightweight-charts.standalone.production.js"></script>
 
@@ -18,7 +19,11 @@ body {
 .wrapper {
   max-width:1100px;
   margin:20px auto;
+  padding:0 10px;
 }
+.title { text-align:center; font-size:18px; }
+.sub { text-align:center; font-size:13px; color:#8a8a8a; margin-bottom:8px; }
+
 .tf-buttons {
   display:flex;
   justify-content:center;
@@ -31,10 +36,16 @@ body {
   color:#ccc;
   padding:5px 10px;
   border-radius:4px;
+  font-size:12px;
 }
 .tf-buttons button.active {
   background:#3f434b;
   color:#fff;
+}
+
+#price,#volume {
+  touch-action:none !important;
+  width:100%;
 }
 #price { height:420px; }
 #volume { height:140px; }
@@ -43,27 +54,32 @@ body {
 
 <body>
 <div class="wrapper">
+  <div class="title">BTC-USDT · NET VOLUME</div>
+  <div class="sub">BINANCE · REALTIME</div>
 
-<div class="tf-buttons">
-  <button onclick="setTF('1d')">1D</button>
-  <button onclick="setTF('4h')">4H</button>
-  <button onclick="setTF('1h')" class="active">1H</button>
-  <button onclick="setTF('30m')">30M</button>
-  <button onclick="setTF('15m')">15M</button>
-</div>
+  <div class="tf-buttons">
+    <button onclick="setTF('1d')">1D</button>
+    <button onclick="setTF('4h')">4H</button>
+    <button onclick="setTF('1h')" class="active">1H</button>
+    <button onclick="setTF('30m')">30M</button>
+    <button onclick="setTF('15m')">15M</button>
+    <button onclick="setTF('5m')">5M</button>
+  </div>
 
-<div id="price"></div>
-<div id="volume"></div>
-
+  <div id="price"></div>
+  <div id="volume"></div>
 </div>
 
 <script>
+/* ===== iOS ZOOM BLOCK ===== */
+['gesturestart','gesturechange','gestureend'].forEach(e=>{
+  document.addEventListener(e,ev=>ev.preventDefault(),{passive:false});
+});
+
 let INTERVAL = '1h';
 let ws = null;
-let tfSession = 0;
-
-let lastCandleTime = null;
-let lastTotalNet = 0;
+let wsTF = null;
+const tz = -new Date().getTimezoneOffset() * 60;
 
 /* ===== COMMON OPTIONS ===== */
 const commonOpts = {
@@ -71,54 +87,87 @@ const commonOpts = {
   grid:{ vertLines:{color:'#1e2228'}, horzLines:{color:'#1e2228'} },
   timeScale:{
     timeVisible:true,
-    secondsVisible:false
+    rightBarStaysOnScroll:true,
+    lockVisibleTimeRangeOnResize:true
   },
-  localization:{
-    timeFormatter: t => {
-      const d = new Date(t * 1000);
-      return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
-    }
+  handleScroll:{
+    mouseWheel:false,
+    pressedMouseMove:true,
+    horzTouchDrag:true,
+    vertTouchDrag:false
   }
 };
 
-/* ===== PRICE ===== */
+/* ===== PRICE CHART ===== */
 const priceChart = LightweightCharts.createChart(
   document.getElementById('price'),
-  { ...commonOpts }
+  {
+    ...commonOpts,
+    handleScale:{ mouseWheel:false, axisPressedMouseMove:false, pinch:true },
+    rightPriceScale:{visible:false},
+    leftPriceScale:{visible:false}
+  }
 );
 
 const candles = priceChart.addCandlestickSeries({
   upColor:'#1fc77b',
   downColor:'#e04b4b',
-  borderVisible:false,
+  borderUpColor:'#1fc77b',
+  borderDownColor:'#e04b4b',
   wickUpColor:'#1fc77b',
   wickDownColor:'#e04b4b'
 });
 
-/* ===== VOLUME ===== */
+/* ===== VOLUME CHART ===== */
 const volumeChart = LightweightCharts.createChart(
   document.getElementById('volume'),
-  { ...commonOpts }
+  {
+    ...commonOpts,
+    handleScale:{ mouseWheel:false, axisPressedMouseMove:false, pinch:false },
+    rightPriceScale:{visible:false},
+    leftPriceScale:{visible:false}
+  }
 );
 
 const volume = volumeChart.addHistogramSeries({
-  priceFormat:{ type:'volume' },
-  base:0
+  base:0,
+  priceFormat:{type:'volume'}
 });
+
+/* ===== SYNC ===== */
+let syncing=false;
+function syncCharts(a,b){
+  a.timeScale().subscribeVisibleLogicalRangeChange(range=>{
+    if(syncing||!range) return;
+    syncing=true;
+    b.timeScale().setVisibleLogicalRange(range);
+    syncing=false;
+  });
+}
+syncCharts(priceChart,volumeChart);
+syncCharts(volumeChart,priceChart);
+
+/* ===== RESIZE ===== */
+function resizeCharts(){
+  priceChart.resize(
+    price.clientWidth,
+    price.clientHeight
+  );
+  volumeChart.resize(
+    volumeEl.clientWidth,
+    volumeEl.clientHeight
+  );
+}
+const price=document.getElementById('price');
+const volumeEl=document.getElementById('volume');
+window.addEventListener('resize',resizeCharts);
 
 /* ===== LOAD HISTORY ===== */
 async function loadData(){
-  tfSession++;
-  const sessionId = tfSession;
+  if(ws){ ws.close(); ws=null; }
 
-  lastCandleTime = null;
-  lastTotalNet = 0;
-
-  if (ws) {
-    ws.onclose = null;
-    ws.close();
-    ws = null;
-  }
+  candles.setData([]);
+  volume.setData([]);
 
   const r = await fetch(
     `https://api.binance.com/api/v3/klines?symbol=BTCUSDT&interval=${INTERVAL}&limit=500`
@@ -127,7 +176,7 @@ async function loadData(){
 
   const c=[], v=[];
   d.forEach(k=>{
-    const t = k[0] / 1000;
+    const t = k[0]/1000 + tz;
 
     c.push({
       time:t,
@@ -140,8 +189,8 @@ async function loadData(){
     const net = 2*k[10] - k[7];
     v.push({
       time:t,
-      value:net / 1e6,
-      color:net >= 0 ? '#1fc77b' : '#e04b4b'
+      value:net/1e6,
+      color:net>=0?'#1fc77b':'#e04b4b'
     });
   });
 
@@ -149,20 +198,23 @@ async function loadData(){
   volume.setData(v);
 
   priceChart.timeScale().fitContent();
-  startRealtime(sessionId);
+  resizeCharts();
+
+  startRealtime();
 }
 
 /* ===== REALTIME ===== */
-function startRealtime(sessionId){
+function startRealtime(){
+  wsTF = INTERVAL;
   ws = new WebSocket(
     `wss://stream.binance.com:9443/ws/btcusdt@kline_${INTERVAL}`
   );
 
-  ws.onmessage = e => {
-    if (sessionId !== tfSession) return;
+  ws.onmessage = e=>{
+    if(wsTF!==INTERVAL) return;
 
     const k = JSON.parse(e.data).k;
-    const time = k.t / 1000;
+    const time = Math.floor(k.t/1000) + tz;
 
     candles.update({
       time,
@@ -172,35 +224,26 @@ function startRealtime(sessionId){
       close:+k.c
     });
 
-    const totalNet = 2*k.Q - k.V;
-    let net;
-
-    if (time !== lastCandleTime) {
-      net = totalNet;
-      lastTotalNet = totalNet;
-      lastCandleTime = time;
-    } else {
-      net = totalNet - lastTotalNet;
-      lastTotalNet = totalNet;
-    }
-
+    const net = 2*k.Q - k.V;
     volume.update({
       time,
-      value: net / 1e6,
-      color: net >= 0 ? '#1fc77b' : '#e04b4b'
+      value:net/1e6,
+      color:net>=0?'#1fc77b':'#e04b4b'
     });
+  };
 
-    if (k.x) {
-      lastCandleTime = null;
-      lastTotalNet = 0;
+  ws.onclose=()=>{
+    if(wsTF===INTERVAL){
+      setTimeout(startRealtime,2000);
     }
   };
 }
 
-/* ===== TF ===== */
+/* ===== TIMEFRAME ===== */
 function setTF(tf){
-  INTERVAL = tf;
-  document.querySelectorAll('button').forEach(b=>b.classList.remove('active'));
+  INTERVAL=tf;
+  document.querySelectorAll('.tf-buttons button')
+    .forEach(b=>b.classList.remove('active'));
   event.target.classList.add('active');
   loadData();
 }
