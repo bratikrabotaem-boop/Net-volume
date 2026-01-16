@@ -86,6 +86,7 @@ let currentBarTime = null;
 let lastV = 0;
 let lastQ = 0;
 let currentNet = 0;
+let baseNet = 0;
 
 /* ===== COMMON OPTIONS ===== */
 const commonOpts = {
@@ -167,6 +168,7 @@ async function loadData(){
 
   currentBarTime = null;
   currentNet = 0;
+  baseNet = 0;
 
   if (ws) {
     ws.onmessage = null;
@@ -198,6 +200,10 @@ async function loadData(){
       color:net>=0?'#1fc77b':'#e04b4b'
     });
   });
+
+  // базовый net текущей (незакрытой) свечи
+  const last = d[d.length - 1];
+  baseNet = (2 * +last[10] - +last[7]);
 
   candles.setData(c);
   volumeSeries.setData(v);
@@ -232,7 +238,7 @@ function startRealtime(currentSession){
       currentBarTime = time;
       lastV = +k.V;
       lastQ = +k.Q;
-      currentNet = 0;
+      currentNet = baseNet;
     }
 
     const dV = +k.V - lastV;
