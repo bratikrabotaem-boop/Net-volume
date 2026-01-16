@@ -71,23 +71,15 @@ body {
 </div>
 
 <script>
-/* ===== GLOBAL ===== */
+/* ===== iOS ZOOM BLOCK ===== */
+['gesturestart','gesturechange','gestureend'].forEach(e=>{
+  document.addEventListener(e,ev=>ev.preventDefault(),{passive:false});
+});
+
 let INTERVAL = '1h';
 let ws = null;
-let sessionId = 0;
+let tfSession = 0;
 const tz = -new Date().getTimezoneOffset() * 60;
-
-/* ===== TF SECONDS ===== */
-function tfSec(){
-  return {
-    '1d':86400,
-    '4h':14400,
-    '1h':3600,
-    '30m':1800,
-    '15m':900,
-    '5m':300
-  }[INTERVAL];
-}
 
 /* ===== COMMON OPTIONS ===== */
 const commonOpts = {
@@ -95,15 +87,8 @@ const commonOpts = {
   grid:{ vertLines:{color:'#1e2228'}, horzLines:{color:'#1e2228'} },
   timeScale:{
     timeVisible:true,
-    secondsVisible:false,
     rightBarStaysOnScroll:true,
-    lockVisibleTimeRangeOnResize:true,
-    tickMarkFormatter:(time)=>{
-      const d = new Date(time * 1000);
-      const h = String(d.getHours()).padStart(2,'0');
-      const m = String(d.getMinutes()).padStart(2,'0');
-      return `${h}:${m}`;
-    }
+    lockVisibleTimeRangeOnResize:true
   },
   handleScroll:{
     mouseWheel:false,
@@ -113,7 +98,7 @@ const commonOpts = {
   }
 };
 
-/* ===== CHARTS ===== */
+/* ===== PRICE CHART ===== */
 const priceChart = LightweightCharts.createChart(
   document.getElementById('price'),
   {
@@ -133,6 +118,7 @@ const candles = priceChart.addCandlestickSeries({
   wickDownColor:'#e04b4b'
 });
 
+/* ===== VOLUME CHART ===== */
 const volumeChart = LightweightCharts.createChart(
   document.getElementById('volume'),
   {
@@ -149,32 +135,40 @@ const volume = volumeChart.addHistogramSeries({
 });
 
 /* ===== SYNC ===== */
-let syncing=false;
-function sync(a,b){
-  a.timeScale().subscribeVisibleLogicalRangeChange(r=>{
-    if(syncing||!r)return;
-    syncing=true;b.timeScale().setVisibleLogicalRange(r);syncing=false;
+let syncing = false;
+function syncCharts(a,b){
+  a.timeScale().subscribeVisibleLogicalRangeChange(range=>{
+    if(syncing || !range) return;
+    syncing = true;
+    b.timeScale().setVisibleLogicalRange(range);
+    syncing = false;
   });
 }
-sync(priceChart,volumeChart);
-sync(volumeChart,priceChart);
+syncCharts(priceChart, volumeChart);
+syncCharts(volumeChart, priceChart);
 
 /* ===== RESIZE ===== */
-function resize(){
-  priceChart.resize(price.clientWidth,price.clientHeight);
-  volumeChart.resize(volume.clientWidth,volume.clientHeight);
+function resizeCharts(){
+  priceChart.resize(
+    document.getElementById('price').clientWidth,
+    document.getElementById('price').clientHeight
+  );
+  volumeChart.resize(
+    document.getElementById('volume').clientWidth,
+    document.getElementById('volume').clientHeight
+  );
 }
-window.addEventListener('resize',resize);
+window.addEventListener('resize', resizeCharts);
 
 /* ===== LOAD HISTORY ===== */
 async function loadData(){
-  sessionId++;
-  const id = sessionId;
+  tfSession++;
+  const sessionId = tfSession;
 
-  if(ws){
-    ws.onmessage=null;
+  if (ws) {
+    ws.onclose = null;
     ws.close();
-    ws=null;
+    ws = null;
   }
 
   const r = await fetch(
@@ -206,25 +200,22 @@ async function loadData(){
   volume.setData(v);
 
   priceChart.timeScale().fitContent();
-  resize();
+  resizeCharts();
 
-  startRealtime(id);
+  startRealtime(sessionId);
 }
 
 /* ===== REALTIME ===== */
-function startRealtime(id){
+function startRealtime(sessionId){
   ws = new WebSocket(
     `wss://stream.binance.com:9443/ws/btcusdt@kline_${INTERVAL}`
   );
 
-  ws.onmessage = e=>{
-    if(id!==sessionId) return;
+  ws.onmessage = e => {
+    if (sessionId !== tfSession) return;
 
     const k = JSON.parse(e.data).k;
-
-    /* 🔥 КЛЮЧЕВОЙ ФИКС */
-    const raw = k.t/1000 + tz;
-    const time = raw - (raw % tfSec());
+    const time = Math.floor(k.t/1000) + tz;
 
     candles.update({
       time,
@@ -242,9 +233,10 @@ function startRealtime(id){
     });
   };
 
-  ws.onclose=()=>{
-    if(id===sessionId)
-      setTimeout(()=>startRealtime(id),2000);
+  ws.onclose = () => {
+    if (sessionId === tfSession) {
+      setTimeout(()=>startRealtime(sessionId),2000);
+    }
   };
 }
 
