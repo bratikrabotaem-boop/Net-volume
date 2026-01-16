@@ -84,6 +84,7 @@ function formatTimeNoSeconds(time) {
     day: '2-digit',
     month: 'short',
     year: '2-digit'
+    timeZone: 'UTC'
   });
 
   const hh = String(d.getHours()).padStart(2, '0');
