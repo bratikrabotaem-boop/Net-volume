@@ -76,6 +76,22 @@ body {
   document.addEventListener(e,ev=>ev.preventDefault(),{passive:false});
 });
 
+/* ===== TIME FORMAT (БЕЗ СЕКУНД) ===== */
+function formatTimeNoSeconds(time) {
+  const d = new Date(time * 1000);
+
+  const date = d.toLocaleDateString('ru-RU', {
+    day: '2-digit',
+    month: 'short',
+    year: '2-digit'
+  });
+
+  const hh = String(d.getHours()).padStart(2, '0');
+  const mm = String(d.getMinutes()).padStart(2, '0');
+
+  return `${date} ${hh}:${mm}`;
+}
+
 let INTERVAL = '1h';
 let ws = null;
 let sessionId = 0;
@@ -92,11 +108,19 @@ let baseNet = 0;
 const commonOpts = {
   layout:{ background:{color:'#121417'}, textColor:'#ccc' },
   grid:{ vertLines:{color:'#1e2228'}, horzLines:{color:'#1e2228'} },
+
+  localization: {
+    timeFormatter: formatTimeNoSeconds
+  },
+
   timeScale:{
     timeVisible:true,
+    secondsVisible:false,
+    timeFormatter: formatTimeNoSeconds,
     rightBarStaysOnScroll:true,
     lockVisibleTimeRangeOnResize:true
   },
+
   handleScroll:{
     mouseWheel:false,
     pressedMouseMove:true,
@@ -201,7 +225,6 @@ async function loadData(){
     });
   });
 
-  // базовый net текущей (незакрытой) свечи
   const last = d[d.length - 1];
   baseNet = (2 * +last[10] - +last[7]);
 
