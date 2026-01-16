@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8">
 
+<!-- Полный запрет браузерного zoom -->
 <meta name="viewport"
       content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 
@@ -12,19 +13,19 @@
 
 <style>
 body {
-  margin: 0;
-  background: #121417;
-  color: #e6e6e6;
-  font-family: Arial, sans-serif;
+  margin:0;
+  background:#121417;
+  color:#e6e6e6;
+  font-family:Arial,sans-serif;
 }
 
 .wrapper {
-  max-width: 1100px;
-  margin: 20px auto;
-  padding: 0 10px;
+  max-width:1100px;
+  margin:20px auto;
+  padding:0 10px;
 }
 
-.title { text-align:center; font-size:18px; margin-bottom:4px; }
+.title { text-align:center; font-size:18px; }
 .sub { text-align:center; font-size:13px; color:#8a8a8a; margin-bottom:8px; }
 
 .tf-buttons {
@@ -33,7 +34,6 @@ body {
   gap:8px;
   margin-bottom:8px;
 }
-
 .tf-buttons button {
   background:#2a2d33;
   border:0;
@@ -43,19 +43,18 @@ body {
   font-size:12px;
   cursor:pointer;
 }
-
 .tf-buttons button.active {
   background:#3f434b;
   color:#fff;
 }
 
-/* 🔑 КРИТИЧНО: ТОЛЬКО ГРАФИКИ */
-#price, #volume {
-  touch-action: none;
+/* Жёстко отключаем touch-жесты браузера */
+#price,#volume {
+  touch-action:none !important;
 }
 
-#price { height: 420px; }
-#volume { height: 140px; }
+#price { height:420px; }
+#volume { height:140px; }
 </style>
 </head>
 
@@ -78,36 +77,50 @@ body {
 </div>
 
 <script>
-/* Блокируем iOS zoom-жесты */
-['gesturestart','gesturechange','gestureend'].forEach(ev => {
-  document.addEventListener(ev, e => e.preventDefault(), { passive:false });
+/* ===== iOS GESTURE BLOCK ===== */
+['gesturestart','gesturechange','gestureend'].forEach(ev=>{
+  document.addEventListener(ev,e=>e.preventDefault(),{passive:false});
 });
 
+/* ===== STATE ===== */
 let INTERVAL = '1h';
 
+/* ===== COMMON OPTIONS ===== */
 const commonOpts = {
-  layout: { background:{color:'#121417'}, textColor:'#ccc' },
-  grid: { vertLines:{color:'#1e2228'}, horzLines:{color:'#1e2228'} },
-  timeScale: { timeVisible:true },
+  layout:{
+    background:{color:'#121417'},
+    textColor:'#ccc'
+  },
+  grid:{
+    vertLines:{color:'#1e2228'},
+    horzLines:{color:'#1e2228'}
+  },
+  timeScale:{ timeVisible:true },
 
-  handleScroll: {
-    mouseWheel: false,
-    pressedMouseMove: true,
-    horzTouchDrag: true,
-    vertTouchDrag: false
+  /* Только PAN */
+  handleScroll:{
+    mouseWheel:false,
+    pressedMouseMove:true,
+    horzTouchDrag:true,
+    vertTouchDrag:false
   },
 
-  handleScale: {
-    mouseWheel: false,
-    axisPressedMouseMove: false,
-    pinch: false
+  /* Полный запрет SCALE */
+  handleScale:{
+    mouseWheel:false,
+    axisPressedMouseMove:false,
+    pinch:false
   }
 };
 
-/* PRICE */
+/* ===== PRICE CHART ===== */
 const priceChart = LightweightCharts.createChart(
   document.getElementById('price'),
-  { ...commonOpts, rightPriceScale:{visible:false}, leftPriceScale:{visible:false} }
+  {
+    ...commonOpts,
+    rightPriceScale:{visible:false},
+    leftPriceScale:{visible:false}
+  }
 );
 
 const candles = priceChart.addCandlestickSeries({
@@ -119,18 +132,22 @@ const candles = priceChart.addCandlestickSeries({
   wickDownColor:'#e04b4b'
 });
 
-/* VOLUME */
+/* ===== VOLUME CHART ===== */
 const volumeChart = LightweightCharts.createChart(
   document.getElementById('volume'),
-  { ...commonOpts, rightPriceScale:{visible:false}, leftPriceScale:{visible:false} }
+  {
+    ...commonOpts,
+    rightPriceScale:{visible:false},
+    leftPriceScale:{visible:false}
+  }
 );
 
 const volume = volumeChart.addHistogramSeries({
-  base: 0,
-  priceFormat:{ type:'volume' }
+  base:0,
+  priceFormat:{type:'volume'}
 });
 
-/* SYNC */
+/* ===== SYNC TIME ===== */
 priceChart.timeScale().subscribeVisibleTimeRangeChange(r=>{
   volumeChart.timeScale().setVisibleRange(r);
 });
@@ -138,18 +155,18 @@ volumeChart.timeScale().subscribeVisibleTimeRangeChange(r=>{
   priceChart.timeScale().setVisibleRange(r);
 });
 
-/* DATA */
-async function loadData() {
+/* ===== DATA ===== */
+async function loadData(){
   const r = await fetch(
     `https://api.binance.com/api/v3/klines?symbol=BTCUSDT&interval=${INTERVAL}&limit=500`
   );
   const d = await r.json();
 
   const c=[], v=[];
-  const tzOffset = -new Date().getTimezoneOffset() * 60;
+  const tz = -new Date().getTimezoneOffset()*60;
 
   d.forEach(k=>{
-    const t = k[0]/1000 + tzOffset;
+    const t = k[0]/1000 + tz;
 
     c.push({
       time:t,
@@ -162,8 +179,8 @@ async function loadData() {
     const net = 2*k[10]-k[7];
     v.push({
       time:t,
-      value: net/1e6,
-      color: net>=0 ? '#1fc77b' : '#e04b4b'
+      value:net/1e6,
+      color:net>=0?'#1fc77b':'#e04b4b'
     });
   });
 
@@ -174,8 +191,9 @@ async function loadData() {
   volumeChart.timeScale().fitContent();
 }
 
+/* ===== TF SWITCH ===== */
 function setTF(tf){
-  INTERVAL = tf;
+  INTERVAL=tf;
   document.querySelectorAll('.tf-buttons button')
     .forEach(b=>b.classList.remove('active'));
   event.target.classList.add('active');
