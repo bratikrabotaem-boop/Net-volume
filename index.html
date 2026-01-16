@@ -2,7 +2,9 @@
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+
 <title>BTC-USDT · Net Volume</title>
 
 <script src="https://cdn.jsdelivr.net/npm/lightweight-charts@4.1.1/dist/lightweight-charts.standalone.production.js"></script>
@@ -13,12 +15,22 @@ body {
   background: #121417;
   color: #e6e6e6;
   font-family: Arial, sans-serif;
+  touch-action: none;
 }
+
 .wrapper {
   max-width: 1100px;
   margin: 20px auto;
   padding: 0 10px;
 }
+
+#price,
+#volume {
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
 .title { text-align:center; font-size:18px; margin-bottom:4px; }
 .sub { text-align:center; font-size:13px; color:#8a8a8a; margin-bottom:8px; }
 
@@ -56,6 +68,17 @@ body {
 </div>
 
 <script>
+/* ===== ЖЁСТКИЙ БЛОК ЖЕСТОВ ===== */
+document.addEventListener('gesturestart', e => e.preventDefault());
+document.addEventListener('gesturechange', e => e.preventDefault());
+document.addEventListener('gestureend', e => e.preventDefault());
+
+document.addEventListener('touchmove', e => {
+  if (e.touches.length === 1) {
+    e.preventDefault();
+  }
+}, { passive: false });
+
 let INTERVAL = '1h';
 
 const commonOpts = {
@@ -79,43 +102,31 @@ const commonOpts = {
 // PRICE
 const priceChart = LightweightCharts.createChart(
   document.getElementById('price'),
-  {
-    ...commonOpts,
+  { ...commonOpts,
     rightPriceScale: { visible:false },
     leftPriceScale: { visible:false }
   }
 );
 
-const candles = priceChart.addCandlestickSeries({
-  upColor:'#1fc77b',
-  downColor:'#e04b4b',
-  borderUpColor:'#1fc77b',
-  borderDownColor:'#e04b4b',
-  wickUpColor:'#1fc77b',
-  wickDownColor:'#e04b4b',
-});
+const candles = priceChart.addCandlestickSeries();
 
 // VOLUME
 const volumeChart = LightweightCharts.createChart(
   document.getElementById('volume'),
-  {
-    ...commonOpts,
+  { ...commonOpts,
     rightPriceScale: { visible:false },
     leftPriceScale: { visible:false }
   }
 );
 
-const volume = volumeChart.addHistogramSeries({
-  base: 0,
-  priceFormat:{ type:'volume' }
-});
+const volume = volumeChart.addHistogramSeries({ base:0 });
 
 // SYNC
-priceChart.timeScale().subscribeVisibleTimeRangeChange(range=>{
-  volumeChart.timeScale().setVisibleRange(range);
+priceChart.timeScale().subscribeVisibleTimeRangeChange(r=>{
+  volumeChart.timeScale().setVisibleRange(r);
 });
-volumeChart.timeScale().subscribeVisibleTimeRangeChange(range=>{
-  priceChart.timeScale().setVisibleRange(range);
+volumeChart.timeScale().subscribeVisibleTimeRangeChange(r=>{
+  priceChart.timeScale().setVisibleRange(r);
 });
 
 // DATA
@@ -130,26 +141,14 @@ async function loadData() {
 
   d.forEach(k=>{
     const t = k[0]/1000 + tzOffset;
-
-    c.push({
-      time:t,
-      open:+k[1],
-      high:+k[2],
-      low:+k[3],
-      close:+k[4]
-    });
+    c.push({ time:t, open:+k[1], high:+k[2], low:+k[3], close:+k[4] });
 
     const net = 2*k[10]-k[7];
-    v.push({
-      time:t,
-      value: net/1e6,
-      color: net>=0 ? '#1fc77b' : '#e04b4b'
-    });
+    v.push({ time:t, value: net/1e6, color: net>=0?'#1fc77b':'#e04b4b' });
   });
 
   candles.setData(c);
   volume.setData(v);
-
   priceChart.timeScale().fitContent();
   volumeChart.timeScale().fitContent();
 }
