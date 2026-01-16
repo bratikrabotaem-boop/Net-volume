@@ -71,15 +71,23 @@ body {
 </div>
 
 <script>
-/* ===== iOS ZOOM BLOCK ===== */
-['gesturestart','gesturechange','gestureend'].forEach(e=>{
-  document.addEventListener(e,ev=>ev.preventDefault(),{passive:false});
-});
-
+/* ===== GLOBAL ===== */
 let INTERVAL = '1h';
 let ws = null;
 let sessionId = 0;
 const tz = -new Date().getTimezoneOffset() * 60;
+
+/* ===== TF SECONDS ===== */
+function tfSec(){
+  return {
+    '1d':86400,
+    '4h':14400,
+    '1h':3600,
+    '30m':1800,
+    '15m':900,
+    '5m':300
+  }[INTERVAL];
+}
 
 /* ===== COMMON OPTIONS ===== */
 const commonOpts = {
@@ -105,7 +113,7 @@ const commonOpts = {
   }
 };
 
-/* ===== PRICE CHART ===== */
+/* ===== CHARTS ===== */
 const priceChart = LightweightCharts.createChart(
   document.getElementById('price'),
   {
@@ -125,7 +133,6 @@ const candles = priceChart.addCandlestickSeries({
   wickDownColor:'#e04b4b'
 });
 
-/* ===== VOLUME CHART ===== */
 const volumeChart = LightweightCharts.createChart(
   document.getElementById('volume'),
   {
@@ -142,34 +149,32 @@ const volume = volumeChart.addHistogramSeries({
 });
 
 /* ===== SYNC ===== */
-let syncing = false;
-function syncCharts(a,b){
-  a.timeScale().subscribeVisibleLogicalRangeChange(range=>{
-    if(syncing || !range) return;
-    syncing = true;
-    b.timeScale().setVisibleLogicalRange(range);
-    syncing = false;
+let syncing=false;
+function sync(a,b){
+  a.timeScale().subscribeVisibleLogicalRangeChange(r=>{
+    if(syncing||!r)return;
+    syncing=true;b.timeScale().setVisibleLogicalRange(r);syncing=false;
   });
 }
-syncCharts(priceChart, volumeChart);
-syncCharts(volumeChart, priceChart);
+sync(priceChart,volumeChart);
+sync(volumeChart,priceChart);
 
 /* ===== RESIZE ===== */
-function resizeCharts(){
+function resize(){
   priceChart.resize(price.clientWidth,price.clientHeight);
   volumeChart.resize(volume.clientWidth,volume.clientHeight);
 }
-window.addEventListener('resize', resizeCharts);
+window.addEventListener('resize',resize);
 
 /* ===== LOAD HISTORY ===== */
 async function loadData(){
   sessionId++;
   const id = sessionId;
 
-  if (ws){
-    ws.onmessage = null;
+  if(ws){
+    ws.onmessage=null;
     ws.close();
-    ws = null;
+    ws=null;
   }
 
   const r = await fetch(
@@ -201,22 +206,25 @@ async function loadData(){
   volume.setData(v);
 
   priceChart.timeScale().fitContent();
-  resizeCharts();
+  resize();
 
   startRealtime(id);
 }
 
-/* ===== REALTIME WS ===== */
+/* ===== REALTIME ===== */
 function startRealtime(id){
   ws = new WebSocket(
     `wss://stream.binance.com:9443/ws/btcusdt@kline_${INTERVAL}`
   );
 
-  ws.onmessage = e => {
-    if (id !== sessionId) return;
+  ws.onmessage = e=>{
+    if(id!==sessionId) return;
 
     const k = JSON.parse(e.data).k;
-    const time = k.t/1000 + tz;
+
+    /* 🔥 КЛЮЧЕВОЙ ФИКС */
+    const raw = k.t/1000 + tz;
+    const time = raw - (raw % tfSec());
 
     candles.update({
       time,
@@ -234,8 +242,8 @@ function startRealtime(id){
     });
   };
 
-  ws.onclose = () => {
-    if (id === sessionId)
+  ws.onclose=()=>{
+    if(id===sessionId)
       setTimeout(()=>startRealtime(id),2000);
   };
 }
