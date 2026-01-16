@@ -15,7 +15,10 @@ body {
   background: #121417;
   color: #e6e6e6;
   font-family: Arial, sans-serif;
+
+  /* ПОЛНЫЙ ЗАПРЕТ touch */
   touch-action: none;
+  overscroll-behavior: none;
 }
 
 .wrapper {
@@ -26,10 +29,15 @@ body {
 
 #price,
 #volume {
+  height: auto;
   touch-action: none;
   user-select: none;
   -webkit-user-select: none;
+  overscroll-behavior: none;
 }
+
+#price { height: 420px; }
+#volume { height: 140px; }
 
 .title { text-align:center; font-size:18px; margin-bottom:4px; }
 .sub { text-align:center; font-size:13px; color:#8a8a8a; margin-bottom:8px; }
@@ -40,12 +48,8 @@ body {
 .tf-buttons button {
   background:#2a2d33; border:0; color:#ccc;
   padding:5px 10px; border-radius:4px; font-size:12px;
-  cursor:pointer;
 }
 .tf-buttons button.active { background:#3f434b; color:#fff; }
-
-#price { height: 420px; }
-#volume { height: 140px; }
 </style>
 </head>
 
@@ -68,16 +72,12 @@ body {
 </div>
 
 <script>
-/* ===== ЖЁСТКИЙ БЛОК ЖЕСТОВ ===== */
-document.addEventListener('gesturestart', e => e.preventDefault());
-document.addEventListener('gesturechange', e => e.preventDefault());
-document.addEventListener('gestureend', e => e.preventDefault());
-
-document.addEventListener('touchmove', e => {
-  if (e.touches.length === 1) {
-    e.preventDefault();
-  }
-}, { passive: false });
+/* ===== ПОЛНЫЙ БЛОК touch/gesture ===== */
+['touchstart','touchmove','touchend','touchcancel',
+ 'gesturestart','gesturechange','gestureend']
+.forEach(ev => {
+  document.addEventListener(ev, e => e.preventDefault(), { passive:false });
+});
 
 let INTERVAL = '1h';
 
@@ -87,7 +87,7 @@ const commonOpts = {
   timeScale: { timeVisible:true },
 
   handleScroll: {
-    horzTouchDrag: true,
+    horzTouchDrag: false,   // touch ВЫКЛ
     vertTouchDrag: false,
     pressedMouseMove: true,
     mouseWheel: false,
@@ -102,23 +102,23 @@ const commonOpts = {
 // PRICE
 const priceChart = LightweightCharts.createChart(
   document.getElementById('price'),
-  { ...commonOpts,
-    rightPriceScale: { visible:false },
-    leftPriceScale: { visible:false }
+  {
+    ...commonOpts,
+    rightPriceScale:{visible:false},
+    leftPriceScale:{visible:false}
   }
 );
-
 const candles = priceChart.addCandlestickSeries();
 
 // VOLUME
 const volumeChart = LightweightCharts.createChart(
   document.getElementById('volume'),
-  { ...commonOpts,
-    rightPriceScale: { visible:false },
-    leftPriceScale: { visible:false }
+  {
+    ...commonOpts,
+    rightPriceScale:{visible:false},
+    leftPriceScale:{visible:false}
   }
 );
-
 const volume = volumeChart.addHistogramSeries({ base:0 });
 
 // SYNC
