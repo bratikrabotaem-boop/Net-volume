@@ -3,7 +3,6 @@
 <head>
 <meta charset="UTF-8">
 
-<!-- Отключаем браузерный zoom -->
 <meta name="viewport"
       content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 
@@ -43,6 +42,9 @@ body {
   justify-content:center;
   gap:8px;
   margin-bottom:8px;
+
+  /* ВАЖНО */
+  touch-action: manipulation;
 }
 
 .tf-buttons button {
@@ -53,6 +55,8 @@ body {
   border-radius:4px;
   font-size:12px;
   cursor:pointer;
+
+  touch-action: manipulation;
 }
 
 .tf-buttons button.active {
@@ -60,7 +64,7 @@ body {
   color:#fff;
 }
 
-/* КРИТИЧНО: отключаем все touch-жесты браузера */
+/* Графики — без браузерных жестов */
 #price, #volume {
   touch-action: none !important;
 }
@@ -90,20 +94,24 @@ body {
 </div>
 
 <script>
-/* ЖЁСТКАЯ БЛОКИРОВКА iOS GESTURE */
+/* Блок iOS gesture API */
 ['gesturestart','gesturechange','gestureend'].forEach(ev => {
   document.addEventListener(ev, e => e.preventDefault(), { passive:false });
 });
 
+/* 🔑 КЛЮЧЕВОЕ: гасим page-gesture на кнопках */
+document.querySelectorAll('.tf-buttons button').forEach(btn => {
+  btn.addEventListener('touchstart', e => e.preventDefault(), { passive:false });
+});
+
 let INTERVAL = '1h';
 
-/* ОБЩИЕ НАСТРОЙКИ */
+/* Общие настройки */
 const commonOpts = {
   layout: { background:{color:'#121417'}, textColor:'#ccc' },
   grid: { vertLines:{color:'#1e2228'}, horzLines:{color:'#1e2228'} },
   timeScale: { timeVisible:true },
 
-  /* ТОЛЬКО PAN */
   handleScroll: {
     mouseWheel: false,
     pressedMouseMove: true,
@@ -111,7 +119,6 @@ const commonOpts = {
     vertTouchDrag: false
   },
 
-  /* БЕЗ SCALE */
   handleScale: {
     mouseWheel: false,
     axisPressedMouseMove: false,
@@ -119,7 +126,7 @@ const commonOpts = {
   }
 };
 
-/* PRICE CHART */
+/* PRICE */
 const priceChart = LightweightCharts.createChart(
   document.getElementById('price'),
   {
@@ -135,14 +142,10 @@ const candles = priceChart.addCandlestickSeries({
   borderUpColor:'#1fc77b',
   borderDownColor:'#e04b4b',
   wickUpColor:'#1fc77b',
-  wickDownColor:'#e04b4b',
-  priceFormat: {
-    type: 'custom',
-    formatter: v => Math.round(v).toString()
-  }
+  wickDownColor:'#e04b4b'
 });
 
-/* VOLUME CHART */
+/* VOLUME */
 const volumeChart = LightweightCharts.createChart(
   document.getElementById('volume'),
   {
@@ -157,7 +160,7 @@ const volume = volumeChart.addHistogramSeries({
   priceFormat:{ type:'volume' }
 });
 
-/* SYNC TIME */
+/* SYNC */
 priceChart.timeScale().subscribeVisibleTimeRangeChange(r=>{
   volumeChart.timeScale().setVisibleRange(r);
 });
