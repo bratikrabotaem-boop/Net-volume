@@ -57,8 +57,6 @@ body {
 
 <script>
 let INTERVAL = '1h';
-const SCALE_WIDTH = 55;
-const SCALE_MARGINS = { top: 0.12, bottom: 0.12 };
 
 const commonOpts = {
   layout: { background:{color:'#121417'}, textColor:'#ccc' },
@@ -71,12 +69,7 @@ const priceChart = LightweightCharts.createChart(
   document.getElementById('price'),
   {
     ...commonOpts,
-    rightPriceScale: {
-      visible:true,
-      borderColor:'#1e2228',
-      minimumWidth: SCALE_WIDTH,
-      scaleMargins: SCALE_MARGINS
-    },
+    rightPriceScale: { visible:false },
     leftPriceScale: { visible:false }
   }
 );
@@ -99,12 +92,7 @@ const volumeChart = LightweightCharts.createChart(
   document.getElementById('volume'),
   {
     ...commonOpts,
-    rightPriceScale: {
-      visible:true,
-      borderColor:'#1e2228',
-      minimumWidth: SCALE_WIDTH,
-      scaleMargins: SCALE_MARGINS
-    },
+    rightPriceScale: { visible:false },
     leftPriceScale: { visible:false }
   }
 );
@@ -130,7 +118,7 @@ async function loadData() {
   const d = await r.json();
 
   const c=[], v=[];
-  const tzOffset = -new Date().getTimezoneOffset() * 60; // локальное время (Москва)
+  const tzOffset = -new Date().getTimezoneOffset() * 60;
 
   d.forEach(k=>{
     const t = k[0]/1000 + tzOffset;
