@@ -19,13 +19,6 @@ body {
   margin: 20px auto;
   padding: 0 10px;
 }
-#price { height: 420px; }
-#volume { height: 140px; }
-
-#price, #volume {
-  touch-action: pan-x;
-}
-
 .title { text-align:center; font-size:18px; margin-bottom:4px; }
 .sub { text-align:center; font-size:13px; color:#8a8a8a; margin-bottom:8px; }
 
@@ -35,8 +28,12 @@ body {
 .tf-buttons button {
   background:#2a2d33; border:0; color:#ccc;
   padding:5px 10px; border-radius:4px; font-size:12px;
+  cursor:pointer;
 }
 .tf-buttons button.active { background:#3f434b; color:#fff; }
+
+#price { height: 420px; }
+#volume { height: 140px; }
 </style>
 </head>
 
@@ -61,64 +58,59 @@ body {
 <script>
 let INTERVAL = '1h';
 
-/* === КЛЮЧ === */
-const FIXED_BAR_SPACING = 6;
-
 const commonOpts = {
   layout: { background:{color:'#121417'}, textColor:'#ccc' },
   grid: { vertLines:{color:'#1e2228'}, horzLines:{color:'#1e2228'} },
-
-  timeScale: {
-    timeVisible: true,
-    barSpacing: FIXED_BAR_SPACING,
-    minBarSpacing: FIXED_BAR_SPACING,
-    maxBarSpacing: FIXED_BAR_SPACING,
-  },
-
-  handleScroll: {
-    horzTouchDrag: true,
-    vertTouchDrag: false,
-    pressedMouseMove: true,
-  },
-
-  handleScale: {
-    pinch: false,
-    mouseWheel: false,
-    axisPressedMouseMove: false,
-  }
+  timeScale: { timeVisible:true }
 };
 
-// PRICE
+// ===== PRICE CHART =====
 const priceChart = LightweightCharts.createChart(
   document.getElementById('price'),
   {
     ...commonOpts,
-    rightPriceScale:{visible:false},
-    leftPriceScale:{visible:false}
+    rightPriceScale: { visible:false },
+    leftPriceScale: { visible:false }
   }
 );
-const candles = priceChart.addCandlestickSeries();
 
-// VOLUME
+const candles = priceChart.addCandlestickSeries({
+  upColor:'#1fc77b',
+  downColor:'#e04b4b',
+  borderUpColor:'#1fc77b',
+  borderDownColor:'#e04b4b',
+  wickUpColor:'#1fc77b',
+  wickDownColor:'#e04b4b',
+  priceFormat: {
+    type: 'custom',
+    formatter: v => Math.round(v).toString()
+  }
+});
+
+// ===== VOLUME CHART =====
 const volumeChart = LightweightCharts.createChart(
   document.getElementById('volume'),
   {
     ...commonOpts,
-    rightPriceScale:{visible:false},
-    leftPriceScale:{visible:false}
+    rightPriceScale: { visible:false },
+    leftPriceScale: { visible:false }
   }
 );
-const volume = volumeChart.addHistogramSeries({ base:0 });
 
-// SYNC
-priceChart.timeScale().subscribeVisibleTimeRangeChange(r=>{
-  volumeChart.timeScale().setVisibleRange(r);
-});
-volumeChart.timeScale().subscribeVisibleTimeRangeChange(r=>{
-  priceChart.timeScale().setVisibleRange(r);
+const volume = volumeChart.addHistogramSeries({
+  base: 0,
+  priceFormat:{ type:'volume' }
 });
 
-// DATA
+// ===== SYNC TIME =====
+priceChart.timeScale().subscribeVisibleTimeRangeChange(range=>{
+  volumeChart.timeScale().setVisibleRange(range);
+});
+volumeChart.timeScale().subscribeVisibleTimeRangeChange(range=>{
+  priceChart.timeScale().setVisibleRange(range);
+});
+
+// ===== DATA =====
 async function loadData() {
   const r = await fetch(
     `https://api.binance.com/api/v3/klines?symbol=BTCUSDT&interval=${INTERVAL}&limit=500`
