@@ -2,7 +2,8 @@
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport"
+      content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <title>BTC-USDT · Net Volume</title>
 
 <script src="https://cdn.jsdelivr.net/npm/lightweight-charts@4.1.1/dist/lightweight-charts.standalone.production.js"></script>
@@ -14,26 +15,59 @@ body {
   color: #e6e6e6;
   font-family: Arial, sans-serif;
 }
+
 .wrapper {
   max-width: 1100px;
   margin: 20px auto;
   padding: 0 10px;
 }
-.title { text-align:center; font-size:18px; margin-bottom:4px; }
-.sub { text-align:center; font-size:13px; color:#8a8a8a; margin-bottom:8px; }
+
+.title {
+  text-align:center;
+  font-size:18px;
+  margin-bottom:4px;
+}
+
+.sub {
+  text-align:center;
+  font-size:13px;
+  color:#8a8a8a;
+  margin-bottom:8px;
+}
 
 .tf-buttons {
-  display:flex; justify-content:center; gap:8px; margin-bottom:8px;
+  display:flex;
+  justify-content:center;
+  gap:8px;
+  margin-bottom:8px;
 }
+
 .tf-buttons button {
-  background:#2a2d33; border:0; color:#ccc;
-  padding:5px 10px; border-radius:4px; font-size:12px;
+  background:#2a2d33;
+  border:0;
+  color:#ccc;
+  padding:5px 10px;
+  border-radius:4px;
+  font-size:12px;
   cursor:pointer;
 }
-.tf-buttons button.active { background:#3f434b; color:#fff; }
 
-#price { height: 420px; }
-#volume { height: 140px; }
+.tf-buttons button.active {
+  background:#3f434b;
+  color:#fff;
+}
+
+#price {
+  height:420px;
+  touch-action: pan-x !important;
+  overscroll-behavior: none;
+}
+
+#volume {
+  height:140px;
+  touch-action: pan-x !important;
+  overscroll-behavior: none;
+}
 </style>
 </head>
 
@@ -77,15 +111,12 @@ const commonOpts = {
   }
 };
 
-// ===== PRICE CHART =====
+// ===== PRICE =====
 const priceChart = LightweightCharts.createChart(
   document.getElementById('price'),
   {
     ...commonOpts,
-    rightPriceScale: {
-      visible: false,
-      autoScale: false
-    },
+    rightPriceScale: { visible:false },
     leftPriceScale: { visible:false }
   }
 );
@@ -99,15 +130,12 @@ const candles = priceChart.addCandlestickSeries({
   wickDownColor:'#e04b4b'
 });
 
-// ===== VOLUME CHART =====
+// ===== VOLUME =====
 const volumeChart = LightweightCharts.createChart(
   document.getElementById('volume'),
   {
     ...commonOpts,
-    rightPriceScale: {
-      visible:false,
-      autoScale:false
-    },
+    rightPriceScale:{ visible:false },
     leftPriceScale:{ visible:false }
   }
 );
@@ -117,12 +145,33 @@ const volume = volumeChart.addHistogramSeries({
 });
 
 // ===== SYNC TIME =====
-priceChart.timeScale().subscribeVisibleTimeRangeChange(range=>{
-  volumeChart.timeScale().setVisibleRange(range);
+priceChart.timeScale().subscribeVisibleTimeRangeChange(r=>{
+  volumeChart.timeScale().setVisibleRange(r);
 });
-volumeChart.timeScale().subscribeVisibleTimeRangeChange(range=>{
-  priceChart.timeScale().setVisibleRange(range);
+volumeChart.timeScale().subscribeVisibleTimeRangeChange(r=>{
+  priceChart.timeScale().setVisibleRange(r);
 });
+
+// ===== TOUCH LOCK =====
+function lockVerticalTouch(el) {
+  let startY = 0;
+
+  el.addEventListener('touchstart', e => {
+    if (e.touches.length === 1) {
+      startY = e.touches[0].clientY;
+    }
+  }, { passive:true });
+
+  el.addEventListener('touchmove', e => {
+    if (e.touches.length !== 1) return;
+
+    const dy = Math.abs(e.touches[0].clientY - startY);
+    if (dy > 2) e.preventDefault();
+  }, { passive:false });
+}
+
+lockVerticalTouch(document.getElementById('price'));
+lockVerticalTouch(document.getElementById('volume'));
 
 // ===== DATA =====
 async function loadData() {
@@ -145,7 +194,7 @@ async function loadData() {
       close:+k[4]
     });
 
-    const net = 2*k[10]-k[7];
+    const net = 2*k[10] - k[7];
     v.push({
       time:t,
       value: net/1e6,
@@ -161,7 +210,7 @@ async function loadData() {
 }
 
 function setTF(tf){
-  INTERVAL=tf;
+  INTERVAL = tf;
   document.querySelectorAll('.tf-buttons button')
     .forEach(b=>b.classList.remove('active'));
   event.target.classList.add('active');
