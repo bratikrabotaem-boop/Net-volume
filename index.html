@@ -71,7 +71,6 @@ body {
 </div>
 
 <script>
-/* ===== iOS ZOOM BLOCK ===== */
 ['gesturestart','gesturechange','gestureend'].forEach(e=>{
   document.addEventListener(e,ev=>ev.preventDefault(),{passive:false});
 });
@@ -81,14 +80,26 @@ let ws = null;
 let tfSession = 0;
 const tz = -new Date().getTimezoneOffset() * 60;
 
-/* ===== COMMON OPTIONS ===== */
+let lastVolumeTime = null;
+let lastNet = 0;
+
+/* ===== COMMON OPTIONS (ЕДИНЫЙ ФОРМАТ ВРЕМЕНИ) ===== */
 const commonOpts = {
   layout:{ background:{color:'#121417'}, textColor:'#ccc' },
   grid:{ vertLines:{color:'#1e2228'}, horzLines:{color:'#1e2228'} },
   timeScale:{
     timeVisible:true,
+    secondsVisible:false,
     rightBarStaysOnScroll:true,
     lockVisibleTimeRangeOnResize:true
+  },
+  localization: {
+    timeFormatter: time => {
+      const d = new Date(time * 1000);
+      const h = String(d.getHours()).padStart(2,'0');
+      const m = String(d.getMinutes()).padStart(2,'0');
+      return `${h}:${m}`;
+    }
   },
   handleScroll:{
     mouseWheel:false,
@@ -147,23 +158,13 @@ function syncCharts(a,b){
 syncCharts(priceChart, volumeChart);
 syncCharts(volumeChart, priceChart);
 
-/* ===== RESIZE ===== */
-function resizeCharts(){
-  priceChart.resize(
-    document.getElementById('price').clientWidth,
-    document.getElementById('price').clientHeight
-  );
-  volumeChart.resize(
-    document.getElementById('volume').clientWidth,
-    document.getElementById('volume').clientHeight
-  );
-}
-window.addEventListener('resize', resizeCharts);
-
 /* ===== LOAD HISTORY ===== */
 async function loadData(){
   tfSession++;
   const sessionId = tfSession;
+
+  lastVolumeTime = null;
+  lastNet = 0;
 
   if (ws) {
     ws.onclose = null;
@@ -179,14 +180,7 @@ async function loadData(){
   const c=[], v=[];
   d.forEach(k=>{
     const t = k[0]/1000 + tz;
-
-    c.push({
-      time:t,
-      open:+k[1],
-      high:+k[2],
-      low:+k[3],
-      close:+k[4]
-    });
+    c.push({ time:t, open:+k[1], high:+k[2], low:+k[3], close:+k[4] });
 
     const net = 2*k[10] - k[7];
     v.push({
@@ -200,8 +194,6 @@ async function loadData(){
   volume.setData(v);
 
   priceChart.timeScale().fitContent();
-  resizeCharts();
-
   startRealtime(sessionId);
 }
 
@@ -225,18 +217,23 @@ function startRealtime(sessionId){
       close:+k.c
     });
 
-    const net = 2*k.Q - k.V;
+    const totalNet = 2*k.Q - k.V;
+
+    let net;
+    if (time !== lastVolumeTime) {
+      net = totalNet;
+      lastNet = totalNet;
+      lastVolumeTime = time;
+    } else {
+      net = totalNet - lastNet;
+      lastNet = totalNet;
+    }
+
     volume.update({
       time,
       value:net/1e6,
       color:net>=0?'#1fc77b':'#e04b4b'
     });
-  };
-
-  ws.onclose = () => {
-    if (sessionId === tfSession) {
-      setTimeout(()=>startRealtime(sessionId),2000);
-    }
   };
 }
 
