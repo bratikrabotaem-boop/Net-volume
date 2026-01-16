@@ -61,7 +61,20 @@ let INTERVAL = '1h';
 const commonOpts = {
   layout: { background:{color:'#121417'}, textColor:'#ccc' },
   grid: { vertLines:{color:'#1e2228'}, horzLines:{color:'#1e2228'} },
-  timeScale: { timeVisible:true }
+  timeScale: { timeVisible:true },
+
+  handleScroll: {
+    mouseWheel: false,
+    pressedMouseMove: true,
+    horzTouchDrag: true,
+    vertTouchDrag: false
+  },
+
+  handleScale: {
+    mouseWheel: false,
+    pinch: false,
+    axisPressedMouseMove: false
+  }
 };
 
 // ===== PRICE CHART =====
