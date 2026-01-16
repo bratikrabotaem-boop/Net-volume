@@ -34,13 +34,6 @@ body {
 
 #price { height: 420px; }
 #volume { height: 140px; }
-
-/* 🔒 ОТКЛЮЧАЕМ БРАУЗЕРНЫЙ ZOOM, НО ОСТАВЛЯЕМ PAN */
-#price,
-#volume,
-.tv-lightweight-charts {
-  touch-action: pan-x !important;
-}
 </style>
 </head>
 
@@ -73,27 +66,11 @@ const commonOpts = {
   timeScale: { timeVisible:true }
 };
 
-// 🔧 PAN по графику + ZOOM ТОЛЬКО ПО ШКАЛЕ
-const interactionOptions = {
-  handleScroll: {
-    mouseWheel: false,
-    pressedMouseMove: true,
-    horzTouchDrag: true,
-    vertTouchDrag: false
-  },
-  handleScale: {
-    mouseWheel: false,
-    pinch: false,
-    axisPressedMouseMove: true   // ← ВАЖНО: зум по шкале цены ВКЛЮЧЕН
-  }
-};
-
-// ===== PRICE =====
+// ===== PRICE CHART =====
 const priceChart = LightweightCharts.createChart(
   document.getElementById('price'),
   {
     ...commonOpts,
-    ...interactionOptions,
     rightPriceScale: {
       visible:true,
       borderColor:'#1e2228',
@@ -117,12 +94,11 @@ const candles = priceChart.addCandlestickSeries({
   }
 });
 
-// ===== VOLUME =====
+// ===== VOLUME CHART =====
 const volumeChart = LightweightCharts.createChart(
   document.getElementById('volume'),
   {
     ...commonOpts,
-    ...interactionOptions,
     rightPriceScale: {
       visible:true,
       borderColor:'#1e2228',
@@ -154,7 +130,7 @@ async function loadData() {
   const d = await r.json();
 
   const c=[], v=[];
-  const tzOffset = -new Date().getTimezoneOffset() * 60;
+  const tzOffset = -new Date().getTimezoneOffset() * 60; // локальное время (Москва)
 
   d.forEach(k=>{
     const t = k[0]/1000 + tzOffset;
