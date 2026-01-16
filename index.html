@@ -23,51 +23,50 @@ body {
 }
 
 .title {
-  text-align:center;
-  font-size:18px;
-  margin-bottom:4px;
+  text-align: center;
+  font-size: 18px;
+  margin-bottom: 4px;
 }
 
 .sub {
-  text-align:center;
-  font-size:13px;
-  color:#8a8a8a;
-  margin-bottom:8px;
+  text-align: center;
+  font-size: 13px;
+  color: #8a8a8a;
+  margin-bottom: 8px;
 }
 
 .tf-buttons {
-  display:flex;
-  justify-content:center;
-  gap:8px;
-  margin-bottom:8px;
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin-bottom: 8px;
 }
 
 .tf-buttons button {
-  background:#2a2d33;
-  border:0;
-  color:#ccc;
-  padding:5px 10px;
-  border-radius:4px;
-  font-size:12px;
-  cursor:pointer;
+  background: #2a2d33;
+  border: 0;
+  color: #ccc;
+  padding: 5px 10px;
+  border-radius: 4px;
+  font-size: 12px;
+  cursor: pointer;
 }
 
 .tf-buttons button.active {
-  background:#3f434b;
-  color:#fff;
+  background: #3f434b;
+  color: #fff;
 }
 
-#price {
-  height:420px;
+#price, #volume {
   touch-action: pan-x !important;
   overscroll-behavior: none;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
 }
 
-#volume {
-  height:140px;
-  touch-action: pan-x !important;
-  overscroll-behavior: none;
-}
+#price { height: 420px; }
+#volume { height: 140px; }
 </style>
 </head>
 
@@ -99,7 +98,7 @@ const commonOpts = {
 
   handleScroll: {
     mouseWheel: false,
-    pressedMouseMove: true,
+    pressedMouseMove: false,   // КЛЮЧЕВО: отключает long-press scale
     horzTouchDrag: true,
     vertTouchDrag: false
   },
@@ -111,7 +110,7 @@ const commonOpts = {
   }
 };
 
-// ===== PRICE =====
+// ===== PRICE CHART =====
 const priceChart = LightweightCharts.createChart(
   document.getElementById('price'),
   {
@@ -130,7 +129,7 @@ const candles = priceChart.addCandlestickSeries({
   wickDownColor:'#e04b4b'
 });
 
-// ===== VOLUME =====
+// ===== VOLUME CHART =====
 const volumeChart = LightweightCharts.createChart(
   document.getElementById('volume'),
   {
@@ -152,26 +151,17 @@ volumeChart.timeScale().subscribeVisibleTimeRangeChange(r=>{
   priceChart.timeScale().setVisibleRange(r);
 });
 
-// ===== TOUCH LOCK =====
-function lockVerticalTouch(el) {
-  let startY = 0;
-
-  el.addEventListener('touchstart', e => {
-    if (e.touches.length === 1) {
-      startY = e.touches[0].clientY;
-    }
-  }, { passive:true });
-
+// ===== HARD TOUCH LOCK (pan only) =====
+function lockTouch(el) {
   el.addEventListener('touchmove', e => {
-    if (e.touches.length !== 1) return;
-
-    const dy = Math.abs(e.touches[0].clientY - startY);
-    if (dy > 2) e.preventDefault();
+    if (e.touches.length === 1) {
+      e.preventDefault();
+    }
   }, { passive:false });
 }
 
-lockVerticalTouch(document.getElementById('price'));
-lockVerticalTouch(document.getElementById('volume'));
+lockTouch(document.getElementById('price'));
+lockTouch(document.getElementById('volume'));
 
 // ===== DATA =====
 async function loadData() {
