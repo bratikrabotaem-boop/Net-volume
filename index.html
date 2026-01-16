@@ -2,7 +2,11 @@
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<!-- ❗ ОБЯЗАТЕЛЬНО -->
+<meta name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+
 <title>BTC-USDT · Net Volume</title>
 
 <script src="https://cdn.jsdelivr.net/npm/lightweight-charts@4.1.1/dist/lightweight-charts.standalone.production.js"></script>
@@ -14,23 +18,44 @@ body {
   color: #e6e6e6;
   font-family: Arial, sans-serif;
 }
+
 .wrapper {
   max-width: 1100px;
   margin: 20px auto;
   padding: 0 10px;
 }
+
 .title { text-align:center; font-size:18px; margin-bottom:4px; }
 .sub { text-align:center; font-size:13px; color:#8a8a8a; margin-bottom:8px; }
 
 .tf-buttons {
-  display:flex; justify-content:center; gap:8px; margin-bottom:8px;
+  display:flex;
+  justify-content:center;
+  gap:8px;
+  margin-bottom:8px;
 }
+
 .tf-buttons button {
-  background:#2a2d33; border:0; color:#ccc;
-  padding:5px 10px; border-radius:4px; font-size:12px;
+  background:#2a2d33;
+  border:0;
+  color:#ccc;
+  padding:5px 10px;
+  border-radius:4px;
+  font-size:12px;
   cursor:pointer;
 }
-.tf-buttons button.active { background:#3f434b; color:#fff; }
+
+.tf-buttons button.active {
+  background:#3f434b;
+  color:#fff;
+}
+
+/* ❗ ЗАПРЕТ NATIVE ZOOM */
+#price,
+#volume {
+  touch-action: pan-x;
+  overscroll-behavior: contain;
+}
 
 #price { height: 420px; }
 #volume { height: 140px; }
@@ -64,50 +89,37 @@ const commonOpts = {
   timeScale: { timeVisible:true },
 
   handleScroll: {
-    mouseWheel: false,
     pressedMouseMove: true,
     horzTouchDrag: true,
-    vertTouchDrag: false
+    vertTouchDrag: false,
+    mouseWheel: false
   },
 
   handleScale: {
-    axisPressedMouseMove: false,
     pinch: false,
-    mouseWheel: false
+    mouseWheel: false,
+    axisPressedMouseMove: false
   }
 };
 
-// ===== PRICE CHART =====
+// ===== PRICE =====
 const priceChart = LightweightCharts.createChart(
   document.getElementById('price'),
-  {
-    ...commonOpts,
-    rightPriceScale: { visible:false },
-    leftPriceScale: { visible:false }
-  }
+  { ...commonOpts }
 );
 
 const candles = priceChart.addCandlestickSeries({
   upColor:'#1fc77b',
   downColor:'#e04b4b',
-  borderUpColor:'#1fc77b',
-  borderDownColor:'#e04b4b',
   wickUpColor:'#1fc77b',
   wickDownColor:'#e04b4b',
-  priceFormat: {
-    type: 'custom',
-    formatter: v => Math.round(v).toString()
-  }
+  borderVisible:false
 });
 
-// ===== VOLUME CHART =====
+// ===== VOLUME =====
 const volumeChart = LightweightCharts.createChart(
   document.getElementById('volume'),
-  {
-    ...commonOpts,
-    rightPriceScale: { visible:false },
-    leftPriceScale: { visible:false }
-  }
+  { ...commonOpts }
 );
 
 const volume = volumeChart.addHistogramSeries({
@@ -116,11 +128,11 @@ const volume = volumeChart.addHistogramSeries({
 });
 
 // ===== SYNC TIME =====
-priceChart.timeScale().subscribeVisibleTimeRangeChange(range=>{
-  volumeChart.timeScale().setVisibleRange(range);
+priceChart.timeScale().subscribeVisibleTimeRangeChange(r=>{
+  volumeChart.timeScale().setVisibleRange(r);
 });
-volumeChart.timeScale().subscribeVisibleTimeRangeChange(range=>{
-  priceChart.timeScale().setVisibleRange(range);
+volumeChart.timeScale().subscribeVisibleTimeRangeChange(r=>{
+  priceChart.timeScale().setVisibleRange(r);
 });
 
 // ===== DATA =====
@@ -131,10 +143,10 @@ async function loadData() {
   const d = await r.json();
 
   const c=[], v=[];
-  const tzOffset = -new Date().getTimezoneOffset() * 60;
+  const tz = -new Date().getTimezoneOffset() * 60;
 
   d.forEach(k=>{
-    const t = k[0]/1000 + tzOffset;
+    const t = k[0]/1000 + tz;
 
     c.push({
       time:t,
@@ -144,23 +156,35 @@ async function loadData() {
       close:+k[4]
     });
 
-    const net = 2*k[10]-k[7];
+    const net = 2*k[10] - k[7];
     v.push({
       time:t,
-      value: net/1e6,
-      color: net>=0 ? '#1fc77b' : '#e04b4b'
+      value: net / 1e6,
+      color: net >= 0 ? '#1fc77b' : '#e04b4b'
     });
   });
 
   candles.setData(c);
   volume.setData(v);
-
   priceChart.timeScale().fitContent();
-  volumeChart.timeScale().fitContent();
 }
 
+// ===== TOUCH LOCK (КЛЮЧЕВОЕ) =====
+function lockTouch(el) {
+  ['touchstart','touchmove','touchend'].forEach(evt=>{
+    el.addEventListener(evt, e=>{
+      if (e.touches && e.touches.length === 1) {
+        e.preventDefault();
+      }
+    }, { passive:false });
+  });
+}
+
+lockTouch(document.getElementById('price'));
+lockTouch(document.getElementById('volume'));
+
 function setTF(tf){
-  INTERVAL=tf;
+  INTERVAL = tf;
   document.querySelectorAll('.tf-buttons button')
     .forEach(b=>b.classList.remove('active'));
   event.target.classList.add('active');
