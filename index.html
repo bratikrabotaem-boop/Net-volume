@@ -2,8 +2,7 @@
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport"
-      content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 
 <title>BTC-USDT · Net Volume (Realtime)</title>
 
@@ -44,8 +43,8 @@ body {
 }
 
 #price,#volume {
-  touch-action:none !important;
   width:100%;
+  touch-action:none;
 }
 #price { height:420px; }
 #volume { height:140px; }
@@ -71,42 +70,26 @@ body {
 </div>
 
 <script>
-/* ===== iOS ZOOM BLOCK ===== */
-['gesturestart','gesturechange','gestureend'].forEach(e=>{
-  document.addEventListener(e,ev=>ev.preventDefault(),{passive:false});
-});
-
 let INTERVAL = '1h';
 let ws = null;
 let wsTF = null;
+
+let lastVol = null;
+let lastTime = null;
+
 const tz = -new Date().getTimezoneOffset() * 60;
 
 /* ===== COMMON OPTIONS ===== */
 const commonOpts = {
   layout:{ background:{color:'#121417'}, textColor:'#ccc' },
   grid:{ vertLines:{color:'#1e2228'}, horzLines:{color:'#1e2228'} },
-  timeScale:{
-    timeVisible:true,
-    rightBarStaysOnScroll:true,
-    lockVisibleTimeRangeOnResize:true
-  },
-  handleScroll:{
-    mouseWheel:false,
-    pressedMouseMove:true,
-    horzTouchDrag:true,
-    vertTouchDrag:false
-  }
+  timeScale:{ timeVisible:true }
 };
 
-/* ===== PRICE CHART ===== */
+/* ===== PRICE ===== */
 const priceChart = LightweightCharts.createChart(
   document.getElementById('price'),
-  {
-    ...commonOpts,
-    handleScale:{ mouseWheel:false, axisPressedMouseMove:false, pinch:true },
-    rightPriceScale:{visible:false},
-    leftPriceScale:{visible:false}
-  }
+  { ...commonOpts, rightPriceScale:{visible:false}, leftPriceScale:{visible:false} }
 );
 
 const candles = priceChart.addCandlestickSeries({
@@ -118,15 +101,10 @@ const candles = priceChart.addCandlestickSeries({
   wickDownColor:'#e04b4b'
 });
 
-/* ===== VOLUME CHART ===== */
+/* ===== VOLUME ===== */
 const volumeChart = LightweightCharts.createChart(
   document.getElementById('volume'),
-  {
-    ...commonOpts,
-    handleScale:{ mouseWheel:false, axisPressedMouseMove:false, pinch:false },
-    rightPriceScale:{visible:false},
-    leftPriceScale:{visible:false}
-  }
+  { ...commonOpts, rightPriceScale:{visible:false}, leftPriceScale:{visible:false} }
 );
 
 const volume = volumeChart.addHistogramSeries({
@@ -134,37 +112,12 @@ const volume = volumeChart.addHistogramSeries({
   priceFormat:{type:'volume'}
 });
 
-/* ===== SYNC ===== */
-let syncing=false;
-function syncCharts(a,b){
-  a.timeScale().subscribeVisibleLogicalRangeChange(range=>{
-    if(syncing||!range) return;
-    syncing=true;
-    b.timeScale().setVisibleLogicalRange(range);
-    syncing=false;
-  });
-}
-syncCharts(priceChart,volumeChart);
-syncCharts(volumeChart,priceChart);
-
-/* ===== RESIZE ===== */
-function resizeCharts(){
-  priceChart.resize(
-    price.clientWidth,
-    price.clientHeight
-  );
-  volumeChart.resize(
-    volumeEl.clientWidth,
-    volumeEl.clientHeight
-  );
-}
-const price=document.getElementById('price');
-const volumeEl=document.getElementById('volume');
-window.addEventListener('resize',resizeCharts);
-
 /* ===== LOAD HISTORY ===== */
 async function loadData(){
   if(ws){ ws.close(); ws=null; }
+
+  lastVol = null;
+  lastTime = null;
 
   candles.setData([]);
   volume.setData([]);
@@ -198,24 +151,21 @@ async function loadData(){
   volume.setData(v);
 
   priceChart.timeScale().fitContent();
-  resizeCharts();
-
   startRealtime();
 }
 
-/* ===== REALTIME ===== */
+/* ===== REALTIME (DELTA LOGIC) ===== */
 function startRealtime(){
   wsTF = INTERVAL;
-  ws = new WebSocket(
-    `wss://stream.binance.com:9443/ws/btcusdt@kline_${INTERVAL}`
-  );
+  ws = new WebSocket(`wss://stream.binance.com:9443/ws/btcusdt@kline_${INTERVAL}`);
 
   ws.onmessage = e=>{
-    if(wsTF!==INTERVAL) return;
+    if(wsTF !== INTERVAL) return;
 
     const k = JSON.parse(e.data).k;
     const time = Math.floor(k.t/1000) + tz;
 
+    /* PRICE */
     candles.update({
       time,
       open:+k.o,
@@ -224,24 +174,37 @@ function startRealtime(){
       close:+k.c
     });
 
-    const net = 2*k.Q - k.V;
+    /* NET VOLUME DELTA */
+    const total = 2*k.Q - k.V;
+
+    if (lastTime !== time) {
+      lastTime = time;
+      lastVol = total;
+
+      volume.update({
+        time,
+        value:0,
+        color:'#1fc77b'
+      });
+      return;
+    }
+
+    const delta = total - lastVol;
+    lastVol = total;
+
+    if (!delta) return;
+
     volume.update({
       time,
-      value:net/1e6,
-      color:net>=0?'#1fc77b':'#e04b4b'
+      value:delta/1e6,
+      color:delta>=0?'#1fc77b':'#e04b4b'
     });
-  };
-
-  ws.onclose=()=>{
-    if(wsTF===INTERVAL){
-      setTimeout(startRealtime,2000);
-    }
   };
 }
 
 /* ===== TIMEFRAME ===== */
 function setTF(tf){
-  INTERVAL=tf;
+  INTERVAL = tf;
   document.querySelectorAll('.tf-buttons button')
     .forEach(b=>b.classList.remove('active'));
   event.target.classList.add('active');
