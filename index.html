@@ -2,8 +2,7 @@
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport"
-      content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>BTC-USDT · Net Volume</title>
 
 <script src="https://cdn.jsdelivr.net/npm/lightweight-charts@4.1.1/dist/lightweight-charts.standalone.production.js"></script>
@@ -15,55 +14,23 @@ body {
   color: #e6e6e6;
   font-family: Arial, sans-serif;
 }
-
 .wrapper {
   max-width: 1100px;
   margin: 20px auto;
   padding: 0 10px;
 }
-
-.title {
-  text-align: center;
-  font-size: 18px;
-  margin-bottom: 4px;
-}
-
-.sub {
-  text-align: center;
-  font-size: 13px;
-  color: #8a8a8a;
-  margin-bottom: 8px;
-}
+.title { text-align:center; font-size:18px; margin-bottom:4px; }
+.sub { text-align:center; font-size:13px; color:#8a8a8a; margin-bottom:8px; }
 
 .tf-buttons {
-  display: flex;
-  justify-content: center;
-  gap: 8px;
-  margin-bottom: 8px;
+  display:flex; justify-content:center; gap:8px; margin-bottom:8px;
 }
-
 .tf-buttons button {
-  background: #2a2d33;
-  border: 0;
-  color: #ccc;
-  padding: 5px 10px;
-  border-radius: 4px;
-  font-size: 12px;
-  cursor: pointer;
+  background:#2a2d33; border:0; color:#ccc;
+  padding:5px 10px; border-radius:4px; font-size:12px;
+  cursor:pointer;
 }
-
-.tf-buttons button.active {
-  background: #3f434b;
-  color: #fff;
-}
-
-#price, #volume {
-  touch-action: pan-x !important;
-  overscroll-behavior: none;
-  -webkit-touch-callout: none;
-  -webkit-user-select: none;
-  user-select: none;
-}
+.tf-buttons button.active { background:#3f434b; color:#fff; }
 
 #price { height: 420px; }
 #volume { height: 140px; }
@@ -94,20 +61,7 @@ let INTERVAL = '1h';
 const commonOpts = {
   layout: { background:{color:'#121417'}, textColor:'#ccc' },
   grid: { vertLines:{color:'#1e2228'}, horzLines:{color:'#1e2228'} },
-  timeScale: { timeVisible:true },
-
-  handleScroll: {
-    mouseWheel: false,
-    pressedMouseMove: false,   // КЛЮЧЕВО: отключает long-press scale
-    horzTouchDrag: true,
-    vertTouchDrag: false
-  },
-
-  handleScale: {
-    mouseWheel: false,
-    pinch: false,
-    axisPressedMouseMove: false
-  }
+  timeScale: { timeVisible:true }
 };
 
 // ===== PRICE CHART =====
@@ -126,7 +80,11 @@ const candles = priceChart.addCandlestickSeries({
   borderUpColor:'#1fc77b',
   borderDownColor:'#e04b4b',
   wickUpColor:'#1fc77b',
-  wickDownColor:'#e04b4b'
+  wickDownColor:'#e04b4b',
+  priceFormat: {
+    type: 'custom',
+    formatter: v => Math.round(v).toString()
+  }
 });
 
 // ===== VOLUME CHART =====
@@ -134,34 +92,23 @@ const volumeChart = LightweightCharts.createChart(
   document.getElementById('volume'),
   {
     ...commonOpts,
-    rightPriceScale:{ visible:false },
-    leftPriceScale:{ visible:false }
+    rightPriceScale: { visible:false },
+    leftPriceScale: { visible:false }
   }
 );
 
 const volume = volumeChart.addHistogramSeries({
-  base: 0
+  base: 0,
+  priceFormat:{ type:'volume' }
 });
 
 // ===== SYNC TIME =====
-priceChart.timeScale().subscribeVisibleTimeRangeChange(r=>{
-  volumeChart.timeScale().setVisibleRange(r);
+priceChart.timeScale().subscribeVisibleTimeRangeChange(range=>{
+  volumeChart.timeScale().setVisibleRange(range);
 });
-volumeChart.timeScale().subscribeVisibleTimeRangeChange(r=>{
-  priceChart.timeScale().setVisibleRange(r);
+volumeChart.timeScale().subscribeVisibleTimeRangeChange(range=>{
+  priceChart.timeScale().setVisibleRange(range);
 });
-
-// ===== HARD TOUCH LOCK (pan only) =====
-function lockTouch(el) {
-  el.addEventListener('touchmove', e => {
-    if (e.touches.length === 1) {
-      e.preventDefault();
-    }
-  }, { passive:false });
-}
-
-lockTouch(document.getElementById('price'));
-lockTouch(document.getElementById('volume'));
 
 // ===== DATA =====
 async function loadData() {
@@ -184,7 +131,7 @@ async function loadData() {
       close:+k[4]
     });
 
-    const net = 2*k[10] - k[7];
+    const net = 2*k[10]-k[7];
     v.push({
       time:t,
       value: net/1e6,
@@ -200,7 +147,7 @@ async function loadData() {
 }
 
 function setTF(tf){
-  INTERVAL = tf;
+  INTERVAL=tf;
   document.querySelectorAll('.tf-buttons button')
     .forEach(b=>b.classList.remove('active'));
   event.target.classList.add('active');
